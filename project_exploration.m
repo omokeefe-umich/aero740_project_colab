@@ -71,7 +71,8 @@ end
 
 function rho = atmosphere_density(h)
 % Simple exponential atmosphere
-    rho0    = 1.225;   % [kg/m^3]
+[rho0, ~] = atmos(h);  % density at altitude h
+
     h_scale = 8500.0;  % [m]
     rho = rho0 * exp(-h / h_scale);
 end
