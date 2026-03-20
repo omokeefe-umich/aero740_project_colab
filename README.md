@@ -38,7 +38,7 @@ Our team uses Git for version control. If you're new to Git, here's how to get s
 **For the first time, clone the repository to your local machine:**
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/omokeefe-umich/aero740_project_colab.git
 cd aero740_project_colab
 ```
 
