@@ -92,21 +92,21 @@ function PlotResults(t, Xs, x_ref)
     view(45, 30);
 
     % ================================================================== %
-    %  Figure 3 – Altitude vs Ground-Plane Range
+    %  Figure 3 – Altitude vs Time
     % ================================================================== %
-    figure('Name', 'z vs Range', 'NumberTitle', 'off');
+    figure('Name', 'z vs Time', 'NumberTitle', 'off');
     hold on;  grid on;
 
-    plot(rr, zr, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
-    plot(r,  z,  'k-',  'LineWidth', 1.5, 'DisplayName', 'Simulated');
+    plot(t, zr, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
+    plot(t,  z,  'k-',  'LineWidth', 1.5, 'DisplayName', 'Simulated');
 
-    scatter(r(1), z(1), 110, 'g', 'filled', ...
+    scatter(t(1), z(1), 110, 'g', 'filled', ...
             'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'Start');
-    scatter(r(end), z(end), 110, 'r', 'filled', ...
+    scatter(t(end), z(end), 110, 'r', 'filled', ...
             'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'End');
 
-    xlabel('r = \surd(x^2 + y^2)  [m]');  ylabel('z  [m]');
-    title('Altitude vs Ground-Plane Range');
+    xlabel('t  [s]');  ylabel('z  [m]');
+    title('Altitude vs Time');
     legend('Location', 'best');
 
     % ================================================================== %
@@ -164,6 +164,26 @@ function PlotResults(t, Xs, x_ref)
     end
 
     sgtitle('Euler Angles (top row) and Angular Rates (bottom row)');
+
+
+
+    % ================================================================== %
+    %  Figure 6 - plot of error vs. time 
+    % =============================================================== %
+    figure('Name', 'Tracking Error', 'NumberTitle', 'off');
+    subplot(2,1,1);
+    error = sqrt((x - xr).^2 + (y - yr).^2 + (z - zr).^2);
+    plot(t, error, 'm-', 'LineWidth', 1.5);
+    grid on;
+    xlabel('t  [s]');  ylabel('Tracking Error  [m]');
+    title('Tracking Error vs Time');
+    subplot(2,1,2);
+    plot(t, x); hold on; 
+    plot(t, y); 
+    plot(t, z); 
+    legend('x', 'y', 'z');
+
+
 
 end
 

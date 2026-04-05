@@ -1,22 +1,7 @@
-%% Quadcopter Nonlinear Dynamics
-% Reference: Thanh 2022, Eq. (6)
-%
-% Implements the continuous-time equations of motion for a quadrotor UAV
-% under body-frame forces and torques.
-%
-% State s (12x1):
-%   s(1:3)  = [x, y, z]            — inertial positions [m]
-%   s(4:6)  = [phi, theta, psi]    — roll, pitch, yaw (ZYX Euler) [rad]
-%   s(7:9)  = [xdot, ydot, zdot]   — inertial velocity [m/s]
-%   s(10:12)= [phidot, thetadot, psidot] — Euler angle rates [rad/s]
-%
-% Input u (4x1):
-%   u(1) = fz       — collective thrust force [N] (positive = upward in body frame)
-%   u(2) = tau_phi  — roll  torque [N·m]
-%   u(3) = tau_th   — pitch torque [N·m]
-%   u(4) = tau_ps   — yaw   torque [N·m]
-%
-% Output sdot (12x1): time derivative of the state vector.
+%% Quadcopter Nonlinear Dynamics — Thanh 2022, Eq. (6)
+% s (12x1): [x,y,z, phi,theta,psi, xdot,ydot,zdot, phidot,thetadot,psidot]
+% u  (4x1): [fz, tau_phi, tau_th, tau_ps]
+% Returns sdot (12x1).
 
 function sdot = dynamics(~, s, u, params)
 
@@ -39,21 +24,14 @@ function sdot = dynamics(~, s, u, params)
     tau_th  = u(3);   % pitch torque
     tau_ps  = u(4);   % yaw   torque
 
-    % Net rotor speed (Om = sum of signed rotor speeds for gyroscopic effect)
-    % Set to zero here, meaning gyroscopic/propeller-reaction terms are neglected.
-    Om = 0;
+    Om = 0;  % net rotor speed (gyroscopic terms neglected)
 
-    % --- Translational Accelerations (Newton's 2nd law in inertial frame) ---
-    % The rotation matrix R(phi,theta,psi) maps body-frame thrust [0;0;fz] to
-    % inertial frame. Using ZYX Euler angle convention:
+    % Translational accelerations (ZYX Euler, body thrust mapped to inertial frame)
     xddot = (cos(phi)*sin(th)*cos(ps) + sin(phi)*sin(ps)) * fz/m;
     yddot = (cos(phi)*sin(th)*sin(ps) - sin(phi)*cos(ps)) * fz/m;
-    zddot = -g + cos(phi)*cos(th) * fz/m;   % gravity opposes z, thrust assists
+    zddot = -g + cos(phi)*cos(th) * fz/m;
 
-    % --- Rotational Accelerations (Euler's rigid-body equations) ---
-    % Cross-axis inertia coupling (e.g., (Iy-Iz)*thdot*psdot / Ix) arises
-    % from the off-diagonal terms in the full Euler equation I*alpha = tau - w×Iw.
-    % The Jr*Om terms represent gyroscopic moments from spinning rotors (zero here).
+    % Rotational accelerations (Euler rigid-body equations)
     phiddot = thdot*psdot*(Iy-Iz)/Ix  - Jr/Ix * thdot*Om  + tau_phi/Ix;
     thddot  = phidot*psdot*(Iz-Ix)/Iy + Jr/Iy * phidot*Om + tau_th/Iy;
     psddot  = phidot*thdot*(Ix-Iy)/Iz                      + tau_ps/Iz;
