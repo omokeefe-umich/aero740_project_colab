@@ -1,0 +1,154 @@
+﻿DOE(
+	Easy DOE,
+	{usage( 1 ), Add Response( Maximize, "Y", ., ., . ),
+	Add Factor( Continuous, -10, 10, "Mismatch", 0, "%" ),
+	Add Factor( Discrete Numeric, {20, 40, 60}, "Horizon", 0, "steps" ),
+	Add Factor( Continuous, 10, 50, "Threat Proximity", 0, "m" ),
+	Add Factor( Discrete Numeric, {0.04, 0.08, 0.12}, "Timestep", 0, "s" ),
+	Add Factor( Categorical, {"No", "Yes"}, "Distutbance", 0, "Wind Field" ),
+	Add Factor( Categorical, {"No", "Yes"}, "Adaptive", 0, "Logic" ),
+	Set Random Seed( 606144 ), Add Term( {1, 0} ), Add Term( {1, 1} ),
+	Add Term( {2, 1} ), Add Potential Term( {2, 2} ), Add Term( {3, 1} ),
+	Add Term( {4, 1} ), Add Potential Term( {4, 2} ), Add Term( {5, 1} ),
+	Add Term( {6, 1} ), Add Term( {1, 1}, {2, 1} ), Add Term( {1, 1}, {3, 1} ),
+	Add Term( {1, 1}, {4, 1} ), Add Term( {1, 1}, {5, 1} ),
+	Add Term( {1, 1}, {6, 1} ), Add Term( {2, 1}, {3, 1} ),
+	Add Term( {2, 1}, {4, 1} ), Add Term( {2, 1}, {5, 1} ),
+	Add Term( {2, 1}, {6, 1} ), Add Term( {3, 1}, {4, 1} ),
+	Add Term( {3, 1}, {5, 1} ), Add Term( {3, 1}, {6, 1} ),
+	Add Term( {4, 1}, {5, 1} ), Add Term( {4, 1}, {6, 1} ),
+	Add Term( {5, 1}, {6, 1} ), Add Alias Term( {1, 1}, {2, 1} ),
+	Add Alias Term( {1, 1}, {3, 1} ), Add Alias Term( {1, 1}, {4, 1} ),
+	Add Alias Term( {1, 1}, {5, 1} ), Add Alias Term( {1, 1}, {6, 1} ),
+	Add Alias Term( {2, 1}, {3, 1} ), Add Alias Term( {2, 1}, {4, 1} ),
+	Add Alias Term( {2, 1}, {5, 1} ), Add Alias Term( {2, 1}, {6, 1} ),
+	Add Alias Term( {3, 1}, {4, 1} ), Add Alias Term( {3, 1}, {5, 1} ),
+	Add Alias Term( {3, 1}, {6, 1} ), Add Alias Term( {4, 1}, {5, 1} ),
+	Add Alias Term( {4, 1}, {6, 1} ), Add Alias Term( {5, 1}, {6, 1} ),
+	Set Sample Size( 27 ), Optimality Criterion( 0 ), Simulate Responses( 0 ),
+	Save X Matrix( 0 )},
+	Set Generators(
+		{usage( 1 ), define, model(
+			guidedradio( 2 ),
+			guidedoptions( 18, 27, 27, 32 ),
+			flexibleradio( 1 ),
+			flexibleoptions(
+				dsd( 0, 2, 4 ),
+				custom(
+					runchoice( 1, 22, 27, . ),
+					msamplesize( 27 ),
+					wholesubplot( ., 0 ),
+					misc( 0, 0 )
+				)
+			)
+		), Design(
+			mfactorsettings(
+				[-10, 10, 10, -10, 10, -10, -10, -10, 10, 10, -10, 10, 10, 10, -10,
+				10, 10, 10, -10, -10, 10, 10, -10, -10, 10, -10, -10, 20, 20, 60, 60,
+				20, 20, 60, 20, 20, 60, 40, 20, 60, 60, 60, 20, 40, 60, 60, 40, 20,
+				20, 20, 20, 40, 20, 60, 10, 10, 50, 50, 10, 50, 10, 50, 50, 50, 50,
+				10, 10, 50, 10, 50, 50, 10, 50, 10, 50, 50, 50, 50, 10, 10, 10, 0.04,
+				0.12, 0.04, 0.04, 0.12, 0.04, 0.12, 0.08, 0.08, 0.12, 0.08, 0.04,
+				0.12, 0.12, 0.04, 0.04, 0.12, 0.04, 0.12, 0.12, 0.12, 0.04, 0.12,
+				0.12, 0.04, 0.12, 0.04, 2, 1, 1, 2, 2, 1, 2, 1, 2, 2, 2, 1, 1, 1, 1,
+				1, 2, 2, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1, 1, 2, 1, 2, 2, 1, 1, 1, 2, 2,
+				2, 2, 1, 1, 1, 1, 1, 2, 1, 2, 2, 2, 1, 2, 2, 2]
+			),
+			mplots( [](0, 1) ),
+			dsdblockcol( [](0, 1) ),
+			mnruns( 27 ),
+			specificationstate(
+				DOE(
+					{usage( 1 ), Add Response( Maximize, "Y", ., ., . ),
+					Add Factor( Continuous, -10, 10, "Mismatch", 0, "%" ),
+					Add Factor(
+						Discrete Numeric,
+						{20, 40, 60},
+						"Horizon",
+						0,
+						"steps"
+					), Add Factor( Continuous, 10, 50, "Threat Proximity", 0, "m" ),
+					Add Factor(
+						Discrete Numeric,
+						{0.04, 0.08, 0.12},
+						"Timestep",
+						0,
+						"s"
+					), Add Factor(
+						Categorical,
+						{"No", "Yes"},
+						"Distutbance",
+						0,
+						"Wind Field"
+					), Add Factor(
+						Categorical,
+						{"No", "Yes"},
+						"Adaptive",
+						0,
+						"Logic"
+					), Set Random Seed( 606144 ), Add Term( {1, 0} ),
+					Add Term( {1, 1} ), Add Term( {2, 1} ),
+					Add Potential Term( {2, 2} ), Add Term( {3, 1} ),
+					Add Term( {4, 1} ), Add Potential Term( {4, 2} ),
+					Add Term( {5, 1} ), Add Term( {6, 1} ),
+					Add Term( {1, 1}, {2, 1} ), Add Term( {1, 1}, {3, 1} ),
+					Add Term( {1, 1}, {4, 1} ), Add Term( {1, 1}, {5, 1} ),
+					Add Term( {1, 1}, {6, 1} ), Add Term( {2, 1}, {3, 1} ),
+					Add Term( {2, 1}, {4, 1} ), Add Term( {2, 1}, {5, 1} ),
+					Add Term( {2, 1}, {6, 1} ), Add Term( {3, 1}, {4, 1} ),
+					Add Term( {3, 1}, {5, 1} ), Add Term( {3, 1}, {6, 1} ),
+					Add Term( {4, 1}, {5, 1} ), Add Term( {4, 1}, {6, 1} ),
+					Add Term( {5, 1}, {6, 1} ), Add Alias Term( {1, 1}, {2, 1} ),
+					Add Alias Term( {1, 1}, {3, 1} ),
+					Add Alias Term( {1, 1}, {4, 1} ),
+					Add Alias Term( {1, 1}, {5, 1} ),
+					Add Alias Term( {1, 1}, {6, 1} ),
+					Add Alias Term( {2, 1}, {3, 1} ),
+					Add Alias Term( {2, 1}, {4, 1} ),
+					Add Alias Term( {2, 1}, {5, 1} ),
+					Add Alias Term( {2, 1}, {6, 1} ),
+					Add Alias Term( {3, 1}, {4, 1} ),
+					Add Alias Term( {3, 1}, {5, 1} ),
+					Add Alias Term( {3, 1}, {6, 1} ),
+					Add Alias Term( {4, 1}, {5, 1} ),
+					Add Alias Term( {4, 1}, {6, 1} ),
+					Add Alias Term( {5, 1}, {6, 1} ), Set Sample Size( 27 ),
+					Optimality Criterion( 0 ), Simulate Responses( 0 ),
+					Save X Matrix( 0 )}
+				)
+			),
+			dsdplan( 0 ),
+			externaldesign( 0 )
+		), dataentry(
+			response(
+				[., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., .,
+				., ., ., .]
+			),
+			mcustommodel(
+				Fit Model(
+					Effects(
+						:Mismatch, :Horizon, :Horizon * :Horizon, :Threat Proximity,
+						:Timestep, :Timestep * :Timestep, :Distutbance, :Adaptive,
+						:Mismatch * :Horizon, :Mismatch * :Threat Proximity,
+						:Mismatch * :Timestep, :Mismatch * :Distutbance,
+						:Mismatch * :Adaptive, :Horizon * :Threat Proximity,
+						:Horizon * :Timestep, :Horizon * :Distutbance,
+						:Horizon * :Adaptive, :Threat Proximity * :Timestep,
+						:Threat Proximity * :Distutbance,
+						:Threat Proximity * :Adaptive, :Timestep * :Distutbance,
+						:Timestep * :Adaptive, :Distutbance * :Adaptive
+					),
+					Y( :Y )
+				)
+			),
+			simulatepanel(
+				coeffs( [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], 0 ),
+				options( 0, {0, 1}, {0, 0.5, 0.15, 0.35}, {0, 0.5, 0.5}, {1} ),
+				other( [1], 0, [1], [1], [1] )
+			)
+		), datastate( 1, 0 ), jmppro( 1 ), analyze(
+			guidedmodel( lineproperty( [](0, 1) ) ),
+			flexiblemodel( fitplan( {} ) )
+		), predict( {} ), tabindex( 2 )}
+	)
+)
