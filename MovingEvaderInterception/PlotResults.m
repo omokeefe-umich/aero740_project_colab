@@ -95,52 +95,56 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
                    '\dot{x} [m/s]', '\dot{y} [m/s]', '\dot{z} [m/s]', ...
                    '\dot{\phi} [rad/s]', '\dot{\theta} [rad/s]', '\dot{\psi} [rad/s]'};
 
-    % % ================================================================== %
-    % %  Figure 1 – XY Trajectory (Top View)
-    % % ================================================================== %
-    % figure('Name', 'XY Trajectory', 'NumberTitle', 'off');
-    % hold on; grid on; axis equal;
-    % plot(xrPath, yrPath, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
-    % plot(x, y, 'k-', 'LineWidth', 1.5, 'DisplayName', 'Simulated');
-    % scatter(x(1), y(1), 110, 'g', 'filled', ...
-    %     'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'Start');
-    % scatter(x(end), y(end), 110, 'r', 'filled', ...
-    %     'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'End');
-    % xlabel('x [m]'); ylabel('y [m]');
-    % title('Top-Down Trajectory (XY Plane)');
-    % legend('Location', 'best');
-    % 
-    % % ================================================================== %
-    % %  Figure 2 – 3-D Trajectory
-    % % ================================================================== %
-    % figure('Name', '3-D Trajectory', 'NumberTitle', 'off');
-    % hold on; grid on;
-    % plot3(xrPath, yrPath, zrPath, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
-    % plot3(x, y, z, 'k-', 'LineWidth', 1.5, 'DisplayName', 'Simulated');
-    % scatter3(x(1), y(1), z(1), 110, 'g', 'filled', ...
-    %     'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'Start');
-    % scatter3(x(end), y(end), z(end), 110, 'r', 'filled', ...
-    %     'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'End');
-    % xlabel('x [m]'); ylabel('y [m]'); zlabel('z [m]');
-    % title('3-D Trajectory');
-    % legend('Location', 'best');
-    % view(45, 30);
-    % 
-    % % ================================================================== %
-    % %  Figure 3 – Altitude vs Time
-    % % ================================================================== %
-    % figure('Name', 'z vs Time', 'NumberTitle', 'off');
-    % hold on; grid on;
-    % plot(t, zr, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
-    % plot(t, z, 'k-', 'LineWidth', 1.5, 'DisplayName', 'Simulated');
-    % plotBounds(t, stateLower(3), stateUpper(3));
-    % scatter(t(1), z(1), 110, 'g', 'filled', ...
-    %     'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'Start');
-    % scatter(t(end), z(end), 110, 'r', 'filled', ...
-    %     'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'End');
-    % xlabel('t [s]'); ylabel('z [m]');
-    % title('Altitude vs Time');
-    % legend('Location', 'best');
+    % ================================================================== %
+    %  Figure 1 – XY Trajectory (Top View)
+    % ================================================================== %
+    figure('Name', 'XY Trajectory', 'NumberTitle', 'off');
+    hold on; grid on; axis equal;
+    plot(xrPath, yrPath, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
+    plot(x, y, 'k-', 'LineWidth', 1.5, 'DisplayName', 'Simulated');
+    scatter(x(1), y(1), 110, 'g', 'filled', ...
+        'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'Start');
+    scatter(x(end), y(end), 110, 'r', 'filled', ...
+        'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'End');
+    xlabel('x [m]', 'Interpreter', 'latex');
+    ylabel('y [m]', 'Interpreter', 'latex');
+    title('Top-Down Trajectory (XY Plane)', 'Interpreter', 'latex');
+    legend('Location', 'best');
+
+    % ================================================================== %
+    %  Figure 2 – 3-D Trajectory
+    % ================================================================== %
+    figure('Name', '3-D Trajectory', 'NumberTitle', 'off');
+    hold on; grid on;
+    plot3(xrPath, yrPath, zrPath, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
+    plot3(x, y, z, 'k-', 'LineWidth', 1.5, 'DisplayName', 'Simulated');
+    scatter3(x(1), y(1), z(1), 110, 'g', 'filled', ...
+        'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'Start');
+    scatter3(x(end), y(end), z(end), 110, 'r', 'filled', ...
+        'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'End');
+    xlabel('x [m]', 'Interpreter', 'latex');
+    ylabel('y [m]', 'Interpreter', 'latex');
+    zlabel('z [m]', 'Interpreter', 'latex');
+    title('3-D Trajectory', 'Interpreter', 'latex');
+    legend('Location', 'best');
+    view(45, 30);
+
+    % ================================================================== %
+    %  Figure 3 – Altitude vs Time
+    % ================================================================== %
+    figure('Name', 'z vs Time', 'NumberTitle', 'off');
+    hold on; grid on;
+    plot(t, zr, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
+    plot(t, z, 'k-', 'LineWidth', 1.5, 'DisplayName', 'Simulated');
+    plotBounds(t, stateLower(3), stateUpper(3));
+    scatter(t(1), z(1), 110, 'g', 'filled', ...
+        'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'Start');
+    scatter(t(end), z(end), 110, 'r', 'filled', ...
+        'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'End');
+    xlabel('t [s]', 'Interpreter', 'latex');
+    ylabel('z [m]', 'Interpreter', 'latex');
+    title('Altitude vs Time', 'Interpreter', 'latex');
+    legend('Location', 'best');
 
     % ================================================================== %
     %  Figure 4 – State Histories with Constraints
@@ -151,11 +155,12 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
         hold on; grid on;
         plot(t, stateData{i}, 'k-', 'LineWidth', 1.2);
         plotBounds(t, stateLower(i), stateUpper(i));
-        xlabel('t [s]'); ylabel(stateLabels{i});
-        title(stateLabels{i});
+        xlabel('t [s]', 'Interpreter', 'latex');
+        ylabel(stateLabels{i}, 'Interpreter', 'latex');
+        title(stateLabels{i}, 'Interpreter', 'latex');
         xlim([t(1), t(end)]);
     end
-    sgtitle('State Histories and Active Constraints');
+    sgtitle('State Histories and Active Constraints', 'Interpreter', 'latex');
 
     % ================================================================== %
     %  Figure 5 – Translational Velocities & Accelerations
@@ -171,18 +176,20 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
         hold on; grid on;
         plot(t, velData{i}, 'Color', clr{i}, 'LineWidth', 1.2);
         plotBounds(t, stateLower(6 + i), stateUpper(6 + i));
-        xlabel('t [s]'); ylabel(velLabels{i});
-        title(velLabels{i});
+        xlabel('t [s]', 'Interpreter', 'latex');
+        ylabel(velLabels{i}, 'Interpreter', 'latex');
+        title(velLabels{i}, 'Interpreter', 'latex');
         xlim([t(1), t(end)]);
 
         subplot(2, 3, i + 3);
         hold on; grid on;
         plot(t, accelData{i}, 'Color', clr{i}, 'LineWidth', 1.2);
-        xlabel('t [s]'); ylabel(accLabels{i});
-        title(accLabels{i});
+        xlabel('t [s]', 'Interpreter', 'latex');
+        ylabel(accLabels{i}, 'Interpreter', 'latex');
+        title(accLabels{i}, 'Interpreter', 'latex');
         xlim([t(1), t(end)]);
     end
-    sgtitle('Translational Velocities (top row) and Accelerations (bottom row)');
+    sgtitle('Translational Velocities (top row) and Accelerations (bottom row)', 'Interpreter', 'latex');
 
     % ================================================================== %
     %  Figure 6 – Euler Angles & Angular Rates
@@ -198,19 +205,21 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
         hold on; grid on;
         plot(t, angleData{i}, 'Color', clr{i}, 'LineWidth', 1.2);
         plotBounds(t, stateLower(3 + i), stateUpper(3 + i));
-        xlabel('t [s]'); ylabel(angleLabels{i});
-        title(angleLabels{i});
+        xlabel('t [s]', 'Interpreter', 'latex');
+        ylabel(angleLabels{i}, 'Interpreter', 'latex');
+        title(angleLabels{i}, 'Interpreter', 'latex');
         xlim([t(1), t(end)]);
 
         subplot(2, 3, i + 3);
         hold on; grid on;
         plot(t, rateData{i}, 'Color', clr{i}, 'LineWidth', 1.2);
         plotBounds(t, stateLower(9 + i), stateUpper(9 + i));
-        xlabel('t [s]'); ylabel(rateLabels{i});
-        title(rateLabels{i});
+        xlabel('t [s]', 'Interpreter', 'latex');
+        ylabel(rateLabels{i}, 'Interpreter', 'latex');
+        title(rateLabels{i}, 'Interpreter', 'latex');
         xlim([t(1), t(end)]);
     end
-    sgtitle('Euler Angles (top row) and Angular Rates (bottom row)');
+    sgtitle('Euler Angles (top row) and Angular Rates (bottom row)', 'Interpreter', 'latex');
 
     % ================================================================== %
     %  Figure 7 – Control Inputs with Constraints
@@ -223,11 +232,12 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
             hold on; grid on;
             plot(t, Uplot(i, :), 'k-', 'LineWidth', 1.2);
             plotBounds(t, controlLower(i), controlUpper(i));
-            xlabel('t [s]'); ylabel(inputLabels{i});
-            title(inputLabels{i});
+            xlabel('t [s]', 'Interpreter', 'latex');
+            ylabel(inputLabels{i}, 'Interpreter', 'latex');
+            title(inputLabels{i}, 'Interpreter', 'latex');
             xlim([t(1), t(end)]);
         end
-        sgtitle('Control Inputs and Active Constraints');
+        sgtitle('Control Inputs and Active Constraints', 'Interpreter', 'latex');
     end
 
     % ================================================================== %
@@ -238,8 +248,9 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
     trackingError = sqrt((x - xr).^2 + (y - yr).^2 + (z - zr).^2);
     plot(t, trackingError, 'm-', 'LineWidth', 1.5);
     grid on;
-    xlabel('t [s]'); ylabel('Tracking Error [m]');
-    title('Tracking Error vs Time');
+    xlabel('t [s]', 'Interpreter', 'latex');
+    ylabel('Tracking Error [m]', 'Interpreter', 'latex');
+    title('Tracking Error vs Time', 'Interpreter', 'latex');
 
     subplot(2, 1, 2);
     hold on; grid on;
@@ -249,8 +260,9 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
     plotBounds(t, stateLower(1), stateUpper(1));
     plotBounds(t, stateLower(2), stateUpper(2));
     plotBounds(t, stateLower(3), stateUpper(3));
-    xlabel('t [s]'); ylabel('Position [m]');
-    title('Position States');
+    xlabel('t [s]', 'Interpreter', 'latex');
+    ylabel('Position [m]', 'Interpreter', 'latex');
+    title('Position States', 'Interpreter', 'latex');
     legend('x', 'y', 'z', 'Location', 'best');
 
 end

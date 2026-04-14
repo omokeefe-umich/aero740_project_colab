@@ -286,8 +286,11 @@ for k = 1:maxMPCSteps
     rangeNow = norm(Xs(1:2, end)' - evaderNow(1, 1:2));
     if rangeNow <= interceptRadius
         mpcIntercepted = true;
+        numstepssaturated = sum(sum(inputHistory - ulb < 1e-2 | inputHistory - uub > -1e-2));
+        time_at_saturation = dt * numstepssaturated;
         fprintf('MPC intercepted at t = %.2f s. Range = %.2f m. Distance from gate = %.1f m. # of Steps = %i\n', Ts(end), rangeNow, (gateCoordinate - evaderCoordinate), k);
         fprintf('    input cost = %.2f Fz, %.5f tau_phi, %.5f tau_theta, %.5f tau_psi\n', u(1), u(2), u(3), u(4));
+        fprintf('    time at saturation = %.2f s\n', time_at_saturation);
         fprintf('    average wall-clock-time = %.2f s\n', mean(wallTimes(wallTimes > 0)))
         break;
     end
@@ -313,42 +316,6 @@ evaderPlot = evaderPosition(tEvaderPlot, E0, VE, thetaE, zTarget);
 evaderPlotCoarse = evaderPosition(times, E0, VE, thetaE, zTarget)';
 
 PlotResults(times, allXs, evaderPlotCoarse, inputHistory, plotConstraints)
-
-
-%% Trajectory comparison: PP and MPC against the same moving evader
-figure(1);
-plot(evaderPlot(:, 1), evaderPlot(:, 2), 'k--', ...
-    'LineWidth', 1.5, 'HandleVisibility', 'off');
-plot(Xs(1, :), Xs(2, :), 'r-', 'LineWidth', 2, 'DisplayName', 'MPC quadcopter');
-plot(gatePoint2D(1), gatePoint2D(2), 'md', ...
-    'MarkerFaceColor', 'm', 'HandleVisibility', 'off');
-if mpcIntercepted
-    plot(Xs(1, end), Xs(2, end), 'ms', ...
-        'MarkerFaceColor', 'm', 'DisplayName', 'MPC intercept');
-end
-title('Moving Evader Pursuit: PP vs MPC');
-legend('Location', 'best');
-
-
-
-%% MPC 3D trajectory
-figure;
-hold on; grid on; box on;
-plot3(evaderMPC(:, 1), evaderMPC(:, 2), evaderMPC(:, 3), ...
-    'k--', 'LineWidth', 1.5, 'DisplayName', 'Evader');
-plot3(Xs(1, :), Xs(2, :), Xs(3, :), ...
-    'r-', 'LineWidth', 2, 'DisplayName', 'MPC quadcopter');
-plot3(P0(1), P0(2), 0, 'bo', 'MarkerFaceColor', 'b', 'DisplayName', 'P_0');
-plot3(E0(1), E0(2), zTarget, 'ro', 'MarkerFaceColor', 'r', 'DisplayName', 'E_0');
-plot3(gatePoint(1), gatePoint(2), gatePoint(3), 'md', ...
-    'MarkerFaceColor', 'm', 'DisplayName', 'Gate');
-xlabel('x [m]');
-ylabel('y [m]');
-zlabel('z [m]');
-title('MPC Quadcopter Trajectory Toward Moving Evader');
-legend('Location', 'best');
-view(3);
-
 
 %% Range comparison
 figure;
