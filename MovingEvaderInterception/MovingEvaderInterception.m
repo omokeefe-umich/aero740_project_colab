@@ -22,7 +22,7 @@ dt = 0.04;
 horizonSteps = 40;
 horizonTime = horizonSteps * dt;
 mpcMaxTime = 60.0;
-interceptRadius = 0.15;
+interceptRadius = 0.5;
 leadTime = 0.0;
 
 % The gate is a fixed point on the evader/ground-vehicle path. The evader
@@ -35,6 +35,12 @@ gateCoordinate = gateAxis' * gatePoint2D;
 evaderInitialCoordinate = gateAxis' * E0;
 gateTime = (gateCoordinate - evaderInitialCoordinate) / VE;
 gatePoint = [gatePoint2D; zTarget];
+
+%% Zero Wind Disturbance for Modelling
+wind_data = DisturbanceModel(1); % 0 = no wind, 1 = wind on
+no_wind = wind_data ;
+no_wind.U = wind_data.U*0 ;
+no_wind.W = wind_data.W*0 ;
 
 %% Proportional pursuit baseline
 R0 = norm(E0 - P0);
@@ -83,33 +89,21 @@ Iy = 0.0019;
 Iz = 0.0223;
 params = [m; g; Jr; Ix; Iy; Iz];
 
-deltax = zeros(12, 1);
 x = zeros(12, 1);
 x(1:2) = P0;
-x(3) = 2;
+x(3) = zTarget;
 u_hover = [m * g; 0; 0; 0];
 u = u_hover;
-inputHistory = u;
+% Assuming accurate acceleration measurement...
+a = dynamics(0, x, u, params, wind_data);
+a = a(7:12);
+
 Xs = [];
 Ts = [];
 
-Q = diag([ ...
-    2 2 80, ...       % delta x y z
-    150 150 20, ...   % delta phi theta psi
-    5 5 20, ...       % delta xdot ydot zdot
-    40 40 10, ...     % delta phidot thetadot psidot
-    2 2 80, ...       % x y z
-    150 150 20, ...   % phi theta psi
-    5 5 20, ...       % xdot ydot zdot
-    40 40 10, ...     % phidot thetadot psidot
-    1 1 1 1 ...       % input state
-    ]);
-P = Q;
-P(13, 13) = 300;
-P(14, 14) = 300;
-P(15, 15) = 200;
-R = diag([2.0; 0.05; 0.05; 0.10]);
-
+Q = blkdiag(0.2 * eye(2), 10, 0.001 * eye(2), zeros(4), eye(3) * 0.01, eye(2) * 0.01, 0.000001, eye(3) * 0.01, zeros(4));
+P = blkdiag(eye(3), zeros(19));
+R = eye(4) * 1e-3;
 %% Bounds / constraints
 % Gate reachability constraint:
 %   gate < quad_position + quad_velocity * time_remaining
@@ -121,20 +115,20 @@ anglim      = deg2rad(70);
 uub = [3.0 * m * g;  torquelim;  torquelim;  0.25 * torquelim];
 ulb = [0.5 * m * g; -torquelim; -torquelim; -0.25 * torquelim];
 
-duub = [4.0;  0.15;  0.15;  0.05];
-dulb = [-4.0; -0.15; -0.15; -0.05];
+duub = [4.0;  0.15;  0.15;  0.05] / dt;
+dulb = [-4.0; -0.15; -0.15; -0.05] / dt;
 
 duStackUB = repmat(duub, horizonSteps, 1);
 duStackLB = repmat(dulb, horizonSteps, 1);
 
 % Per-step hard constraints on the augmented predicted state:
 % z >= 0, bounded attitude, and bounded physical input.
-A_z = zeros(1, 28);
-A_z(15) = -1;
-A_ang = zeros(3, 28);
-A_ang(:, 16:18) = eye(3);
-A_u = zeros(4, 28);
-A_u(:, 25:28) = eye(4);
+A_z = zeros(1, 22);
+A_z(3) = -1;
+A_ang = zeros(3, 22);
+A_ang(:, 4:6) = eye(3);
+A_u = zeros(4, 22);
+A_u(:, 19:22) = eye(4);
 A_step = [A_z; A_ang; -A_ang; A_u; -A_u];
 b_step = [0; anglim * ones(3, 1); anglim * ones(3, 1); uub; -ulb];
 
@@ -165,6 +159,7 @@ allXs = x;
 times = 0;
 eState = evaderPosition(0, E0, VE, thetaE, zTarget);
 evaderState = eState(1,1:3);
+inputHistory = u;
 
 Xs = x(1:3);
 Ts = 0;
@@ -174,24 +169,18 @@ wallTimes = zeros(maxMPCSteps,1);
 for k = 1:maxMPCSteps
     currentTime = (k - 1) * dt;
 
-    Ac = Jacobian(@(x) dynamics(0, x, u, params), x + deltax);
-    Bc = Jacobian(@(u) dynamics(0, x + deltax, u, params), u);
+    J_xv = Jacobian(@(x) dynamics(0, x, u, params, no_wind), x);
+    J_u  = Jacobian(@(u) dynamics(0, x, u, params, no_wind), u);
+    Ac = [zeros(12, 6), eye(12), zeros(12, 4); zeros(6, 6), J_xv(7:12, :), zeros(6, 4); zeros(4, 18), eye(4)];
+    Bc = [zeros(12, 4); J_u(7:12, :); eye(4)];
     [Ads, Bds] = Discretize_dt(dt, ones(horizonSteps, 1), Ac, Bc);
-    Ads_augmented = zeros(horizonSteps, 28, 28);
-    Bds_augmented = zeros(horizonSteps, 28, 4);
+    [S, M] = StackedMatrix(Ads, Bds);
 
-    for i = 1:horizonSteps
-        Ads_augmented(i, :, :) = [squeeze(Ads(i, :, :)), zeros(12, 16); ...
-            [eye(12); zeros(4, 12)], eye(16)];
-        Bds_augmented(i, :, :) = [squeeze(Bds(i, :, :)); zeros(12, 4); eye(4)];
-    end
-
-    [S, M] = StackedMatrix(Ads_augmented, Bds_augmented);
-    x_aug = [deltax; x; u];
+    x_aug = [x; a; u];
 
     predictionTimes = (currentTime + leadTime + dt:dt:currentTime + leadTime + horizonTime)';
     targetXYZ = evaderPosition(predictionTimes, E0, VE, thetaE, zTarget);
-    x_traj = [zeros(horizonSteps, 12), targetXYZ, zeros(horizonSteps, 9), ...
+    x_traj = [targetXYZ, zeros(horizonSteps, 15), ...
         repmat(u_hover', horizonSteps, 1)]';
     x_traj = x_traj(:);
 
@@ -208,7 +197,7 @@ for k = 1:maxMPCSteps
         break;
     end
 
-    % Augmented state indices: [deltax(1:12); x(13:24); u(25:28)].
+    % Augmented state indices: [x(1:6); xdot(7:12); xddot(13:18); u(19:22)].
     Mx = M * x_aug;
 
     % Hard path constraints for each predicted augmented state.
@@ -225,19 +214,18 @@ for k = 1:maxMPCSteps
     bineqGate = bineqBase;
     gateActive = false;
     if terminalTimeRemaining > 0
-        S_N = S((horizonSteps - 1) * 28 + 1:horizonSteps * 28, :);
-        M_N = M((horizonSteps - 1) * 28 + 1:horizonSteps * 28, :);
-        A_gate_N = zeros(1, 28);
-        A_gate_N(13:14) = -gateAxis';
-        A_gate_N(19:20) = -terminalTimeRemaining * gateAxis';
+        S_N = S((horizonSteps - 1) * 22 + 1:horizonSteps * 22, :);
+        M_N = M((horizonSteps - 1) * 22 + 1:horizonSteps * 22, :);
+        A_gate_N = zeros(1, 22);
+        A_gate_N(1:2) = -gateAxis';
+        A_gate_N(7:8) = -terminalTimeRemaining * gateAxis';
         b_gate_N = -gateCoordinate;
         AineqGate = [A_gate_N * S_N; AineqBase];
         bineqGate = [b_gate_N - A_gate_N * M_N * x_aug; bineqBase];
         gateActive = true;
     end
-    
+
     tnow = tic; 
-    xNow = x + deltax;
     if gateActive
         [u_mpc, ~, exitflag] = quadprog(Hqp, q, AineqGate, bineqGate, [], [], ...
             duStackLB, duStackUB, [], qpOptions);
@@ -262,20 +250,19 @@ for k = 1:maxMPCSteps
 
     if exitflag <= 0 || isempty(u_mpc) || any(~isfinite(u_mpc))
         fprintf('QP fail debug: t = %.2f, z = %.3f, zdot = %.3f, u = [%.3f %.3f %.3f %.3f], gateActive = %d\n', ...
-            currentTime, xNow(3), xNow(9), u(1), u(2), u(3), u(4), gateActive);
+            currentTime, x(3), x(9), u(1), u(2), u(3), u(4), gateActive);
         warning('Constrained MPC quadprog failed at t = %.2f s with exitflag %d. Stopping MPC.', ...
             currentTime, exitflag);
         break;
     end
     wallTimes(k) = toc(tnow);
-    u = u + u_mpc(1:4);
+    u = u + u_mpc(1:4) * dt;
     u = min(max(u, ulb), uub);
-    x = x + deltax;
-
-    [T, X] = ode45(@(t, state) dynamics(t, state, u, params), 0:dt/10:dt, x);
+    [T, X] = ode45(@(t, state) dynamics(t, state, u, params, wind_data), 0:dt/10:dt, x);
     Xs = [Xs, X(2:end, 1:3)'];
     Ts = [Ts; currentTime + T(2:end)];
-    deltax = X(end, :)' - x;
+    a = (X(end, 7:12)' - x(7:12)) / dt;
+    x = X(end, :)';
 
     allXs = [allXs, X(end,:)'];
     inputHistory = [inputHistory, u];
@@ -315,6 +302,7 @@ tEvaderPlot = (0:dt:max(tPP(end), Ts(end)))';
 evaderPlot = evaderPosition(tEvaderPlot, E0, VE, thetaE, zTarget);
 evaderPlotCoarse = evaderPosition(times, E0, VE, thetaE, zTarget)';
 
+%% Plot the results
 PlotResults(times, allXs, evaderPlotCoarse, inputHistory, plotConstraints)
 
 %% Range comparison

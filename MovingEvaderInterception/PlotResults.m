@@ -91,9 +91,9 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
 
     clr = {'b', 'r', [0 0.55 0]};
     stateData = {x, y, z, phi, th, ps, xd, yd, zd, phid, thd, psd};
-    stateLabels = {'x [m]', 'y [m]', 'z [m]', '\phi [rad]', '\theta [rad]', '\psi [rad]', ...
-                   '\dot{x} [m/s]', '\dot{y} [m/s]', '\dot{z} [m/s]', ...
-                   '\dot{\phi} [rad/s]', '\dot{\theta} [rad/s]', '\dot{\psi} [rad/s]'};
+    stateLabels = {'x [m]', 'y [m]', 'z [m]', '$\phi$ [rad]', '$\theta$ [rad]', '$\psi$ [rad]', ...
+                   '$\dot{x}$ [m/s]', '$\dot{y}$ [m/s]', '$\dot{z}$ [m/s]', ...
+                   '$\dot{\phi}$ [rad/s]', '$\dot{\theta}$ [rad/s]', '$\dot{\psi}$ [rad/s]'};
 
     % ================================================================== %
     %  Figure 1 – XY Trajectory (Top View)
@@ -168,8 +168,8 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
     figure('Name', 'Translational Kinematics', 'NumberTitle', 'off');
     velData   = {xd, yd, zd};
     accelData = {xdd, ydd, zdd};
-    velLabels = {'\dot{x} [m/s]', '\dot{y} [m/s]', '\dot{z} [m/s]'};
-    accLabels = {'\ddot{x} [m/s^2]', '\ddot{y} [m/s^2]', '\ddot{z} [m/s^2]'};
+    velLabels = {'$\dot{x}$ [m/s]', '$\dot{y}$ [m/s]', '$\dot{z}$ [m/s]'};
+    accLabels = {'$\ddot{x}$ [m/s^2]', '$\ddot{y}$ [m/s^2]', '$\ddot{z}$ [m/s^2]'};
 
     for i = 1:3
         subplot(2, 3, i);
@@ -197,8 +197,8 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
     figure('Name', 'Rotational Kinematics', 'NumberTitle', 'off');
     angleData = {phi, th, ps};
     rateData  = {phid, thd, psd};
-    angleLabels = {'\phi [rad]', '\theta [rad]', '\psi [rad]'};
-    rateLabels  = {'\dot{\phi} [rad/s]', '\dot{\theta} [rad/s]', '\dot{\psi} [rad/s]'};
+    angleLabels = {'$\phi$ [rad]', '$\theta$ [rad]', '$\psi$ [rad]'};
+    rateLabels  = {'$\dot{\phi}$ [rad/s]', '$\dot{\theta}$ [rad/s]', '$\dot{\psi}$ [rad/s]'};
 
     for i = 1:3
         subplot(2, 3, i);
@@ -226,7 +226,7 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
     % ================================================================== %
     if ~isempty(Uplot)
         figure('Name', 'Control Inputs', 'NumberTitle', 'off');
-        inputLabels = {'f_z [N]', '\tau_{\phi} [N·m]', '\tau_{\theta} [N·m]', '\tau_{\psi} [N·m]'};
+        inputLabels = {'$f_z$ [N]', '$\tau_{\phi}$ [N m]', '$\tau_{\theta}$ [N m]', '$\tau_{\psi}$ [N m]'};
         for i = 1:4
             subplot(2, 2, i);
             hold on; grid on;
