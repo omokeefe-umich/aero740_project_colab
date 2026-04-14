@@ -303,7 +303,7 @@ evaderPlot = evaderPosition(tEvaderPlot, E0, VE, thetaE, zTarget);
 evaderPlotCoarse = evaderPosition(times, E0, VE, thetaE, zTarget)';
 
 %% Plot the results
-PlotResults(times, allXs, evaderPlotCoarse, inputHistory, plotConstraints)
+PlotResults(times, allXs, evaderPlotCoarse, inputHistory, plotConstraints, wind_data)
 
 %% Range comparison
 figure;

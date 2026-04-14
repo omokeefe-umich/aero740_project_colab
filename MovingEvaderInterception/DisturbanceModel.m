@@ -5,7 +5,7 @@ function wind_data = DisturbanceModel(wind_on)
     end
 
     % Domain Parameters
-    Lx = 120; Lz = 60; Nx = 41; Nz = 21;
+    Lx = 25; Lz = 10; Nx = 41; Nz = 21;
 
     if ~wind_on
         x = linspace(0, Lx, Nx);

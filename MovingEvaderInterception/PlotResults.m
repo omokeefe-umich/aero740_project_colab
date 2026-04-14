@@ -1,9 +1,9 @@
-function PlotResults(t, Xs, x_ref, Us, constraints)
+function PlotResults(t, Xs, x_ref, Us, constraints, windData)
 %PLOTRESULTS  Visualize quadcopter MPC simulation results against a reference.
 %
 % Generates figures for:
 %   1. XY trajectory vs reference path
-%   2. 3-D trajectory vs reference path
+%   2. 3-D trajectory vs reference path with optional wind overlay
 %   3. Altitude vs time with bounds
 %   4. All state histories with lower/upper constraints
 %   5. Translational velocities and numerical accelerations vs time
@@ -23,12 +23,16 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
 %                 .stateUpper   (12×1)
 %                 .controlLower (4×1)
 %                 .controlUpper (4×1)
+%   windData    - optional wind-field struct from DisturbanceModel
 
     if nargin < 4
         Us = [];
     end
     if nargin < 5 || isempty(constraints)
         constraints = struct();
+    end
+    if nargin < 6
+        windData = [];
     end
 
     t = t(:)';
@@ -116,6 +120,11 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
     % ================================================================== %
     figure('Name', '3-D Trajectory', 'NumberTitle', 'off');
     hold on; grid on;
+    yWindSlices = linspace(min([y, yrPath]), max([y, yrPath]), 3);
+    xyzLimits = [min([x, xrPath]), max([x, xrPath]); ...
+                 min([y, yrPath]), max([y, yrPath]); ...
+                 min([z, zrPath]), max([z, zrPath])];
+    addWindOverlay3D(windData, yWindSlices, xyzLimits);
     plot3(xrPath, yrPath, zrPath, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
     plot3(x, y, z, 'k-', 'LineWidth', 1.5, 'DisplayName', 'Simulated');
     scatter3(x(1), y(1), z(1), 110, 'g', 'filled', ...
@@ -125,7 +134,7 @@ function PlotResults(t, Xs, x_ref, Us, constraints)
     xlabel('x [m]', 'Interpreter', 'latex');
     ylabel('y [m]', 'Interpreter', 'latex');
     zlabel('z [m]', 'Interpreter', 'latex');
-    title('3-D Trajectory', 'Interpreter', 'latex');
+    title('3-D Trajectory with Wind Overlay', 'Interpreter', 'latex');
     legend('Location', 'best');
     view(45, 30);
 
@@ -305,6 +314,74 @@ function plotBounds(t, lowerBound, upperBound)
     if ~isempty(upperBound) && isfinite(upperBound)
         plot([t(1), t(end)], [upperBound, upperBound], 'r--', 'LineWidth', 1.0, ...
             'HandleVisibility', 'off');
+    end
+end
+
+function addWindOverlay3D(windData, ySlices, xyzLimits)
+    if isempty(windData) || ~isstruct(windData)
+        return;
+    end
+
+    requiredFields = {'X', 'Z', 'U', 'W'};
+    for iField = 1:numel(requiredFields)
+        if ~isfield(windData, requiredFields{iField})
+            return;
+        end
+    end
+
+    if ~any(abs(windData.U(:)) > 0 | abs(windData.W(:)) > 0)
+        return;
+    end
+
+    nRows = size(windData.X, 1);
+    nCols = size(windData.X, 2);
+    rowIdx = unique(round(linspace(1, nRows, min(6, nRows))));
+    colIdx = unique(round(linspace(1, nCols, min(9, nCols))));
+
+    Xq = windData.X(rowIdx, colIdx);
+    Zq = windData.Z(rowIdx, colIdx);
+    Uq = windData.U(rowIdx, colIdx);
+    Wq = windData.W(rowIdx, colIdx);
+
+    if isfield(windData, 'Umag') && ~isempty(windData.Umag)
+        Umag = windData.Umag;
+    else
+        Umag = sqrt(windData.U.^2 + windData.W.^2);
+    end
+
+    ySlices = unique(ySlices(:)');
+    if isempty(ySlices)
+        ySlices = 0;
+    end
+
+    yMid = ySlices(ceil(numel(ySlices) / 2));
+    surf(windData.X, yMid * ones(size(windData.X)), windData.Z, Umag, ...
+        'EdgeColor', 'none', 'FaceAlpha', 0.18, 'DisplayName', 'Wind speed slice');
+    colormap(turbo);
+    cb = colorbar;
+    cb.Label.String = 'Wind speed [m/s]';
+
+    spanX = max(1, xyzLimits(1, 2) - xyzLimits(1, 1));
+    spanY = max(1, xyzLimits(2, 2) - xyzLimits(2, 1));
+    spanZ = max(1, xyzLimits(3, 2) - xyzLimits(3, 1));
+    arrowScale = 0.08 * max([spanX, spanY, spanZ]);
+    maxMag = max(sqrt(Uq(:).^2 + Wq(:).^2));
+    if maxMag <= eps
+        return;
+    end
+
+    Uplot = arrowScale * Uq / maxMag;
+    Wplot = arrowScale * Wq / maxMag;
+
+    for iSlice = 1:numel(ySlices)
+        Yq = ySlices(iSlice) * ones(size(Xq));
+        qh = quiver3(Xq, Yq, Zq, Uplot, zeros(size(Uplot)), Wplot, 0, ...
+            'Color', [0.10 0.45 0.85], 'LineWidth', 1.0, 'MaxHeadSize', 0.8);
+        if iSlice == 1
+            qh.DisplayName = 'Wind vectors';
+        else
+            qh.HandleVisibility = 'off';
+        end
     end
 end
 
