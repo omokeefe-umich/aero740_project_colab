@@ -18,10 +18,11 @@ thetaE = pi / 2;
 zTarget = 0.0;
 
 dt = 0.04;
+dt_sim = 0.4; 
 horizonSteps = 40;
 horizonTime = horizonSteps * dt;
-mpcMaxTime = 60.0;
-interceptRadius = 0.5;
+simMaxTime = 60.0;
+interceptRadius = 0.15;
 leadTime = 0.0;
 
 % The gate is a fixed point on the evader/ground-vehicle path. The evader
@@ -146,10 +147,10 @@ inputHistory = u;
 Xs = x(1:3);
 Ts = 0;
 mpcIntercepted = false;
-maxMPCSteps = floor(mpcMaxTime / dt);
-wallTimes = zeros(maxMPCSteps,1);
-for k = 1:maxMPCSteps
-    currentTime = (k - 1) * dt;
+maxSIMsteps = floor(simMaxTime / dt_sim);
+wallTimes = zeros(maxSIMsteps,1);
+for k = 1:maxSIMsteps
+    currentTime = (k - 1) * dt_sim;
 
     J_xv = Jacobian(@(x) dynamics(0, x, u, params, no_wind), x);
     J_u  = Jacobian(@(u) dynamics(0, x, u, params, no_wind), u);
@@ -238,17 +239,17 @@ for k = 1:maxMPCSteps
         break;
     end
     wallTimes(k) = toc(tnow);
-    u = u + u_mpc(1:4) * dt;
+    u = u + u_mpc(1:4) * dt_sim;
     u = min(max(u, ulb), uub);
-    [T, X] = ode45(@(t, state) dynamics(t, state, u, params, wind_data), 0:dt/10:dt, x);
+    [T, X] = ode45(@(t, state) dynamics(t, state, u, params, wind_data), 0:dt_sim/10:dt_sim, x);
     Xs = [Xs, X(2:end, 1:3)'];
     Ts = [Ts; currentTime + T(2:end)];
-    a = (X(end, 7:12)' - x(7:12)) / dt;
+    a = (X(end, 7:12)' - x(7:12)) / dt_sim;
     x = X(end, :)';
 
     allXs = [allXs, X(end,:)'];
     inputHistory = [inputHistory, u];
-    times = [times; times(end)+dt];
+    times = [times; times(end)+dt_sim];
     evaderState = [evaderState; evaderNow(1, 1:3)];
 
     evaderNow = evaderPosition(Ts(end), E0, VE, thetaE, zTarget);
@@ -256,7 +257,7 @@ for k = 1:maxMPCSteps
     if rangeNow <= interceptRadius
         mpcIntercepted = true;
         numstepssaturated = sum(sum(inputHistory - ulb < 1e-2 | inputHistory - uub > -1e-2));
-        time_at_saturation = dt * numstepssaturated;
+        time_at_saturation = dt_sim * numstepssaturated;
         fprintf('MPC intercepted at t = %.2f s. Range = %.2f m. Distance from gate = %.1f m. # of Steps = %i\n', Ts(end), rangeNow, (gateCoordinate - evaderCoordinate), k);
         fprintf('    input cost = %.2f Fz, %.5f tau_phi, %.5f tau_theta, %.5f tau_psi\n', u(1), u(2), u(3), u(4));
         fprintf('    time at saturation = %.2f s\n', time_at_saturation);
@@ -264,9 +265,9 @@ for k = 1:maxMPCSteps
         break;
     end
 
-    if mod(k, round(1 / dt)) == 0 || k == maxMPCSteps
+    if mod(k, round(1 / dt_sim)) == 0 || k == maxSIMsteps
         fprintf('MPC progress: %.2f / %.2f s, range = %.2f m, gate active = %d\n', ...
-            Ts(end), mpcMaxTime, rangeNow, gateActive);
+            Ts(end), simMaxTime, rangeNow, gateActive);
     end
 end
 
@@ -280,7 +281,7 @@ end
 
 sameTimeEnd = min(Ts(end), tPP(end));
 sameTimePP = tPP <= sameTimeEnd;
-tEvaderPlot = (0:dt:max(tPP(end), Ts(end)))';
+tEvaderPlot = (0:dt_sim:max(tPP(end), Ts(end)))';
 evaderPlot = evaderPosition(tEvaderPlot, E0, VE, thetaE, zTarget);
 evaderPlotCoarse = evaderPosition(times, E0, VE, thetaE, zTarget)';
 

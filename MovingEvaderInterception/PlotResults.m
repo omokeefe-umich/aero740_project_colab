@@ -1,4 +1,4 @@
-function PlotResults(t, Xs, x_ref, Us, constraints, windData)
+function PlotResults(t, Xs, x_ref, Us, constraints, windData, comparisonData)
 %PLOTRESULTS  Visualize quadcopter MPC simulation results against a reference.
 %
 % Generates figures for:
@@ -24,6 +24,7 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData)
 %                 .controlLower (4×1)
 %                 .controlUpper (4×1)
 %   windData    - optional wind-field struct from DisturbanceModel
+%   comparisonData - optional struct for PP/MPC trajectory comparison
 
     if nargin < 4
         Us = [];
@@ -33,6 +34,9 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData)
     end
     if nargin < 6
         windData = [];
+    end
+    if nargin < 7 || isempty(comparisonData)
+        comparisonData = struct();
     end
 
     t = t(:)';
@@ -100,19 +104,42 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData)
                    '$\dot{\phi}$ [rad/s]', '$\dot{\theta}$ [rad/s]', '$\dot{\psi}$ [rad/s]'};
 
     % ================================================================== %
-    %  Figure 1 – XY Trajectory (Top View)
+    %  Figure 1 – Trajectory comparison: PP and MPC against the same moving evader
     % ================================================================== %
-    figure('Name', 'XY Trajectory', 'NumberTitle', 'off');
-    hold on; grid on; axis equal;
-    plot(xrPath, yrPath, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
-    plot(x, y, 'k-', 'LineWidth', 1.5, 'DisplayName', 'Simulated');
-    scatter(x(1), y(1), 110, 'g', 'filled', ...
-        'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'Start');
-    scatter(x(end), y(end), 110, 'r', 'filled', ...
-        'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'End');
+    figure(1); clf;
+    hold on; axis equal; grid on; box on;
+
+    if isfield(comparisonData, 'evaderPlot') && ~isempty(comparisonData.evaderPlot)
+        plot(comparisonData.evaderPlot(:, 1), comparisonData.evaderPlot(:, 2), 'k--', ...
+            'LineWidth', 1.5, 'HandleVisibility', 'off');
+    else
+        plot(xrPath, yrPath, 'k--', 'LineWidth', 1.5, 'HandleVisibility', 'off');
+    end
+
+    if isfield(comparisonData, 'ppPath') && ~isempty(comparisonData.ppPath)
+        plot(comparisonData.ppPath(:, 1), comparisonData.ppPath(:, 2), 'b-', ...
+            'LineWidth', 2, 'DisplayName', 'Proportional pursuit');
+    end
+
+    plot(x, y, 'r-', 'LineWidth', 2, 'DisplayName', 'MPC quadcopter');
+
+    if isfield(comparisonData, 'gatePoint2D') && numel(comparisonData.gatePoint2D) >= 2
+        plot(comparisonData.gatePoint2D(1), comparisonData.gatePoint2D(2), 'md', ...
+            'MarkerFaceColor', 'm', 'HandleVisibility', 'off');
+    end
+
+    if isfield(comparisonData, 'ppIntercept') && ~isempty(comparisonData.ppIntercept)
+        plot(comparisonData.ppIntercept(1), comparisonData.ppIntercept(2), 'ko', ...
+            'MarkerFaceColor', 'k', 'DisplayName', 'PP intercept');
+    end
+
+    if isfield(comparisonData, 'mpcIntercepted') && comparisonData.mpcIntercepted
+        plot(x(end), y(end), 'ms', 'MarkerFaceColor', 'm', 'DisplayName', 'MPC intercept');
+    end
+
     xlabel('x [m]', 'Interpreter', 'latex');
     ylabel('y [m]', 'Interpreter', 'latex');
-    title('Top-Down Trajectory (XY Plane)', 'Interpreter', 'latex');
+    title('Moving Evader Pursuit: PP vs MPC', 'Interpreter', 'latex');
     legend('Location', 'best');
 
     % ================================================================== %
@@ -125,8 +152,8 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData)
                  min([y, yrPath]), max([y, yrPath]); ...
                  min([z, zrPath]), max([z, zrPath])];
     addWindOverlay3D(windData, yWindSlices, xyzLimits);
-    plot3(xrPath, yrPath, zrPath, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
-    plot3(x, y, z, 'k-', 'LineWidth', 1.5, 'DisplayName', 'Simulated');
+    plot3(xrPath, yrPath, zrPath, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Moving evader');
+    plot3(x, y, z, 'k-', 'LineWidth', 1.5, 'DisplayName', 'MPC quadcopter');
     scatter3(x(1), y(1), z(1), 110, 'g', 'filled', ...
         'MarkerEdgeColor', 'k', 'LineWidth', 0.8, 'DisplayName', 'Start');
     scatter3(x(end), y(end), z(end), 110, 'r', 'filled', ...
@@ -134,7 +161,7 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData)
     xlabel('x [m]', 'Interpreter', 'latex');
     ylabel('y [m]', 'Interpreter', 'latex');
     zlabel('z [m]', 'Interpreter', 'latex');
-    title('3-D Trajectory with Wind Overlay', 'Interpreter', 'latex');
+    title('MPC Quadcopter Trajectory Toward Moving Evader', 'Interpreter', 'latex');
     legend('Location', 'best');
     view(45, 30);
 
