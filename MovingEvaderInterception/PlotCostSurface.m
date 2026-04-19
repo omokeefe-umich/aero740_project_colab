@@ -29,8 +29,9 @@ function plotState = PlotCostSurface(H, q, u_traj, u_star, plotState, k, current
     end
 
     pairList = [1 2; 2 3; 3 4; 1 3; 1 4; 2 4];
-    pairNames = {'du(1) vs du(2)', 'du(2) vs du(3)', 'du(3) vs du(4)', ...
-                 'du(1) vs du(3)', 'du(1) vs du(4)', 'du(2) vs du(4)'};
+    pairNames = {'F_z vs \tau_{\phi}', '\tau_{\phi} vs \tau_{\theta}', '\tau_{\theta} vs \tau_{\psi}', ...
+                 'F_z vs \tau_{\theta}', 'F_z vs \tau_{\psi}', '\tau_{\phi} vs \tau_{\psi}'};
+    uNames = {'F_z', '\tau_{\phi}', '\tau_{\theta}', '\tau_{\psi}'};
 
     nGrid = 35;
     halfWidth = 5;
@@ -74,8 +75,8 @@ function plotState = PlotCostSurface(H, q, u_traj, u_star, plotState, k, current
         colormap(ax, 'parula');
         colorbar(ax);
         grid(ax, 'on');
-        xlabel(ax, sprintf('du(%d)', idxA));
-        ylabel(ax, sprintf('du(%d)', idxB));
+        xlabel(ax, uNames{idxA});
+        ylabel(ax, uNames{idxB});
         title(ax, pairNames{p});
     end
 

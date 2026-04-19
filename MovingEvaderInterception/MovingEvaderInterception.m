@@ -8,6 +8,12 @@
 %  xddot yddot zddot phiddot thetaddot psiddot fz tau_phi tau_th tau_ps]
 clear; clc; close all;
 
+%% Simulation Wind Disturbance Setup
+wind_data = DisturbanceModel(1); % 0 = no wind, 1 = wind on
+no_wind = wind_data ;
+no_wind.U = wind_data.U*0 ;
+no_wind.W = wind_data.W*0 ;
+
 %% Pursuit / evader setup
 P0 = [0; 0];
 E0 = [20; 0];
@@ -28,7 +34,7 @@ params = [m; g; Jr; Ix; Iy; Iz];
 
 x = zeros(12, 1);
 x(1:2) = P0;
-x(3) = zTarget + 3.0;
+x(3) = zTarget + 2.0;
 u_hover = [m * g; 0; 0; 0];
 u = u_hover;
 % Assuming accurate acceleration measurement...
@@ -47,19 +53,13 @@ leadTime = 0.0;
 % The gate is a fixed point on the evader/ground-vehicle path. The evader
 % moves from E0 toward this point, and the quadcopter must intercept the
 % evader before the evader reaches the gate.
-gateDist = 16;
+gateDist = 50;
 gateAxis = [cos(thetaE); sin(thetaE)];
 gatePoint2D = E0 + gateDist * gateAxis;
 gateCoordinate = gateAxis' * gatePoint2D;
 evaderInitialCoordinate = gateAxis' * E0;
 gateTime = (gateCoordinate - evaderInitialCoordinate) / VE;
 gatePoint = [gatePoint2D; zTarget];
-
-%% Simulation Wind Disturbance Setup
-wind_data = DisturbanceModel(1); % 0 = no wind, 1 = wind on
-no_wind = wind_data ;
-no_wind.U = wind_data.U*0 ;
-no_wind.W = wind_data.W*0 ;
 
 %% QP Cost Setup
 Q = blkdiag(0.1 * eye(3), ...
