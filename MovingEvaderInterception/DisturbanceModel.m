@@ -1,7 +1,9 @@
-function wind_data = DisturbanceModel(wind_on)
+function wind_data = DisturbanceModel(wind_on, wind_multiplier)
     % This function generates the wind field and returns it as a structure
     if nargin < 1
         wind_on = 1;
+    elseif nargin < 2
+        wind_multiplier = 1;
     end
 
     % Domain Parameters
@@ -36,7 +38,7 @@ function wind_data = DisturbanceModel(wind_on)
     phaseState.phi_w = 2*pi*rand(p.nModes,1);
 
     % Synthesize Field
-    [X, Z, U, W, Umag] = WindField(p, phaseState, Lx, Lz, Nx, Nz);
+    [X, Z, U, W, Umag] = WindField(p, phaseState, Lx, Lz, Nx, Nz, wind_multiplier);
 
     % Pack into a struct for the MPC script
     wind_data.X = X;
@@ -46,7 +48,7 @@ function wind_data = DisturbanceModel(wind_on)
     wind_data.Umag = Umag;
 end
 
-function [X, Z, U, W, Umag] = WindField(p, phaseState, Lx, Lz, Nx, Nz)
+function [X, Z, U, W, Umag] = WindField(p, phaseState, Lx, Lz, Nx, Nz, wind_multiplier)
     x = linspace(0, Lx, Nx);
     z = linspace(0, Lz, Nz);
     [X, Z] = meshgrid(x,z);
@@ -69,7 +71,7 @@ function [X, Z, U, W, Umag] = WindField(p, phaseState, Lx, Lz, Nx, Nz)
         W = W + Aw(i) * cos(phase_i + phaseState.phi_w(i));
     end
     
-    U = (U - mean(U(:))) * (p.sigma_u / std(U(:)));
-    W = (W - mean(W(:))) * (p.sigma_w / std(W(:)));
+    U = wind_multiplier * (U - mean(U(:))) * (p.sigma_u / std(U(:)));
+    W = wind_multiplier * (W - mean(W(:))) * (p.sigma_w / std(W(:)));
     Umag = sqrt(U.^2 + W.^2);
 end

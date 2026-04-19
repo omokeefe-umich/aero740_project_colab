@@ -32,9 +32,9 @@ function plotState = PlotCostSurface(H, q, u_traj, u_star, plotState, k, current
     pairNames = {'F_z vs \tau_{\phi}', '\tau_{\phi} vs \tau_{\theta}', '\tau_{\theta} vs \tau_{\psi}', ...
                  'F_z vs \tau_{\theta}', 'F_z vs \tau_{\psi}', '\tau_{\phi} vs \tau_{\psi}'};
     uNames = {'F_z', '\tau_{\phi}', '\tau_{\theta}', '\tau_{\psi}'};
+    halfWidthList = [25, pi/4, pi/4, pi/4]; 
 
     nGrid = 35;
-    halfWidth = 5;
 
     if ~isfield(plotState, 'fig') || ~isgraphics(plotState.fig)
         plotState.fig = figure('Name', 'MPC Cost Contour Slices', 'NumberTitle', 'off');
@@ -52,8 +52,10 @@ function plotState = PlotCostSurface(H, q, u_traj, u_star, plotState, k, current
 
         centerA = u_star(idxA);
         centerB = u_star(idxB);
-        rangeA = linspace(centerA - halfWidth, centerA + halfWidth, nGrid);
-        rangeB = linspace(centerB - halfWidth, centerB + halfWidth, nGrid);
+        halfWidthA = halfWidthList(idxA);
+        halfWidthB = halfWidthList(idxB);
+        rangeA = linspace(centerA - halfWidthA, centerA + halfWidthA, nGrid);
+        rangeB = linspace(centerB - halfWidthB, centerB + halfWidthB, nGrid);
         [UA, UB] = meshgrid(rangeA, rangeB);
 
         Cost = zeros(size(UA));
@@ -62,7 +64,7 @@ function plotState = PlotCostSurface(H, q, u_traj, u_star, plotState, k, current
                 du_test = u_star;
                 du_test(idxA) = UA(i, j);
                 du_test(idxB) = UB(i, j);
-                Cost(i, j) = 0.5 * du_test' * H * du_test + q' * du_test;
+                Cost(i, j) = 0.5 * du_test' * H * du_test + q' * du_test; % Am I accounting for the linear term correctly here?
             end
         end
 

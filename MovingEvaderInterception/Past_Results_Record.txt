@@ -1,0 +1,49 @@
+
+==================================================================
+==================================================================
+Runs 4/19/2026 at 3:35PM
+==================================================================
+==================================================================
+
+gate at 12m
+
+Simulating for a maximum of 3 seconds, over 75 simulation time steps with dt=0.04
+MPC progress: 1.00 / 3.00 s, range = 13.05 m, gate active = 0
+MPC progress: 2.00 / 3.00 s, range = 2.86 m, gate active = 0
+Warning: Evader reached the gate before MPC intercept at t = 2.40 s. Stopping simulation. 
+> In MovingEvaderInterception (line 175) 
+MPC stopped at t = 2.40 s without intercept, final range = 0.9633 m
+PP lambda = 15 -> tf = 6.10 s, Rf = 0.5000 m
+
+
+gate at 12.81m
+Simulating for a maximum of 3 seconds, over 75 simulation time steps with dt=0.04
+MPC progress: 1.00 / 3.00 s, range = 13.01 m, gate active = 1
+MPC progress: 2.00 / 3.00 s, range = 2.82 m, gate active = 0
+MPC intercepted at t = 2.60 s. Range = 0.42 m. Distance from gate = 0.0 m. # of Steps = 65
+    input cost = 12.72 Fz, -0.00136 tau_phi, 0.00172 tau_theta, 0.00801 tau_psi
+    time at saturation = 0.28 s
+    average wall-clock-time = 0.13 s
+PP lambda = 15 -> tf = 6.10 s, Rf = 0.5000 m
+
+
+gate at 13m
+Simulating for a maximum of 3 seconds, over 75 simulation time steps with dt=0.04
+MPC progress: 1.00 / 3.00 s, range = 13.01 m, gate active = 1
+MPC progress: 2.00 / 3.00 s, range = 2.81 m, gate active = 0
+MPC intercepted at t = 2.60 s. Range = 0.42 m. Distance from gate = 0.2 m. # of Steps = 65
+    input cost = 12.72 Fz, -0.00134 tau_phi, 0.00171 tau_theta, 0.00812 tau_psi
+    time at saturation = 0.28 s
+    average wall-clock-time = 0.21 s
+PP lambda = 15 -> tf = 6.10 s, Rf = 0.5000 m
+
+
+gate at 14m
+Simulating for a maximum of 3 seconds, over 75 simulation time steps with dt=0.04
+MPC progress: 1.00 / 3.00 s, range = 12.99 m, gate active = 1
+MPC progress: 2.00 / 3.00 s, range = 2.80 m, gate active = 0
+MPC intercepted at t = 2.60 s. Range = 0.43 m. Distance from gate = 1.2 m. # of Steps = 65
+    input cost = 12.72 Fz, -0.00133 tau_phi, 0.00157 tau_theta, 0.00890 tau_psi
+    time at saturation = 0.28 s
+    average wall-clock-time = 0.14 s
+PP lambda = 15 -> tf = 6.10 s, Rf = 0.5000 m

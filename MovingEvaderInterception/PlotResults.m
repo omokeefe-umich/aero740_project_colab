@@ -10,6 +10,7 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData, comparisonData)
 %   6. Euler angles and angular rates vs time with bounds
 %   7. Control inputs vs time with lower/upper constraints
 %   8. Tracking error vs time
+%   9. Experienced wind components vs time
 %
 % Inputs:
 %   t           - time vector (1×N or N×1) [s]
@@ -59,6 +60,8 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData, comparisonData)
     phi  = Xs(4,:);   th   = Xs(5,:);   ps   = Xs(6,:);
     xd   = Xs(7,:);   yd   = Xs(8,:);   zd   = Xs(9,:);
     phid = Xs(10,:);  thd  = Xs(11,:);  psd  = Xs(12,:);
+
+    windExperienced = computeExperiencedWind(Xs, windData);
 
     % Numerical accelerations via central finite differences.
     xdd = gradient(xd, t);
@@ -264,7 +267,7 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData, comparisonData)
         title(accLabels{i}, 'Interpreter', 'latex');
         xlim([t(1), t(end)]);
     end
-    sgtitle('Translational Velocities (top row) and Accelerations (bottom row)', 'Interpreter', 'latex');
+    sgtitle('Translational Velocities and Accelerations', 'Interpreter', 'latex');
 
     % ================================================================== %
     %  Figure 6 – Euler Angles & Angular Rates
@@ -303,7 +306,7 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData, comparisonData)
         title(rateLabels{i}, 'Interpreter', 'latex');
         xlim([t(1), t(end)]);
     end
-    sgtitle('Euler Angles (top row) and Angular Rates (bottom row)', 'Interpreter', 'latex');
+    sgtitle('Euler Angles and Angular Rates', 'Interpreter', 'latex');
 
     % ================================================================== %
     %  Figure 7 – Control Inputs with Constraints
@@ -353,6 +356,23 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData, comparisonData)
     ylabel('Position [m]', 'Interpreter', 'latex');
     title('Position States', 'Interpreter', 'latex');
     legend('x', 'y', 'z', 'Location', 'best');
+
+    % ================================================================== %
+    %  Figure 9 – Experienced Wind vs Time
+    % ================================================================== %
+    figure('Name', 'Experienced Wind Components', 'NumberTitle', 'off');
+    windLabels = {'$v_{w,x}\;[\mathrm{m/s}]$', '$v_{w,y}\;[\mathrm{m/s}]$', '$v_{w,z}\;[\mathrm{m/s}]$'};
+    windSeries = {windExperienced.vx, windExperienced.vy, windExperienced.vz};
+    for i = 1:3
+        subplot(3, 1, i);
+        hold on; grid on;
+        plot(t, windSeries{i}, 'LineWidth', 1.3, 'Color', clr{i});
+        xlabel('t [s]', 'Interpreter', 'latex');
+        ylabel(windLabels{i}, 'Interpreter', 'latex');
+        title(sprintf('Experienced wind in %c-direction', char('x' + (i - 1))), 'Interpreter', 'latex');
+        xlim([t(1), t(end)]);
+    end
+    sgtitle('Wind Experienced by Quadcopter at Outer-Loop Steps', 'Interpreter', 'latex');
 
 end
 
@@ -532,6 +552,32 @@ function [value, isterminal, direction] = stopFcnPP(~, x, interceptRadius)
     value = x(1) - interceptRadius;
     isterminal = 1;
     direction = -1;
+end
+
+function windExperienced = computeExperiencedWind(Xs, windData)
+    nSteps = size(Xs, 2);
+    windExperienced = struct('vx', zeros(1, nSteps), ...
+                             'vy', zeros(1, nSteps), ...
+                             'vz', zeros(1, nSteps));
+
+    if isempty(windData) || ~isstruct(windData)
+        return;
+    end
+
+    requiredFields = {'X', 'Z', 'U', 'W'};
+    for iField = 1:numel(requiredFields)
+        if ~isfield(windData, requiredFields{iField})
+            return;
+        end
+    end
+
+    xPos = Xs(1, :);
+    zPos = Xs(3, :);
+
+    windExperienced.vx = interp2(windData.X, windData.Z, windData.U, xPos, zPos, 'linear', 0);
+    windExperienced.vz = interp2(windData.X, windData.Z, windData.W, xPos, zPos, 'linear', 0);
+    % Current disturbance model has no y-direction wind lookup; keep as zero.
+    windExperienced.vy = zeros(1, nSteps);
 end
 
 

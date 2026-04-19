@@ -8,8 +8,17 @@
 %  xddot yddot zddot phiddot thetaddot psiddot fz tau_phi tau_th tau_ps]
 clear; clc; close all;
 
+%% Plotting Preferences
+enableCostSurfacePlot = false;
+costSurfacePlotStride = 1;
+costPlotState = struct();
+costPlotState.captureMovie = true;
+costPlotState.movieFrameRate = 10;
+costPlotState.moviePath = fullfile(pwd, 'MovingEvaderInterception_cost_surface.mp4');
+
 %% Simulation Wind Disturbance Setup
-wind_data = DisturbanceModel(1); % 0 = no wind, 1 = wind on
+wind_multiplier = 1;
+wind_data = DisturbanceModel(1, wind_multiplier); % 0 = no wind, 1 = wind on
 no_wind = wind_data ;
 no_wind.U = wind_data.U*0 ;
 no_wind.W = wind_data.W*0 ;
@@ -23,7 +32,7 @@ lambda = 15;
 thetaE = pi / 2;
 zTarget = 0.0;
 
-% Quadcopter parameters
+%% Quadcopter parameters
 m  = 1.12;        % mass [kg]
 g  = 9.81;        % gravity [m/s^2]
 Jr = 8.5e-4;      % rotor inertia [kg.m^2]
@@ -34,32 +43,35 @@ params = [m; g; Jr; Ix; Iy; Iz];
 
 x = zeros(12, 1);
 x(1:2) = P0;
-x(3) = zTarget + 2.0;
+x(3) = zTarget + 0.0;
 u_hover = [m * g; 0; 0; 0];
 u = u_hover;
 % Assuming accurate acceleration measurement...
 a = dynamics(0, x, u, params, wind_data);
 a = a(7:12);
 
-%% Simulation Parameters
-dt = 0.04;
-horizonSteps = 40;
-horizonTime = horizonSteps * dt;
-mpcMaxTime = 60.0;
-interceptRadius = 0.5;
-leadTime = 0.0;
-
 %% Gate Setup
 % The gate is a fixed point on the evader/ground-vehicle path. The evader
 % moves from E0 toward this point, and the quadcopter must intercept the
 % evader before the evader reaches the gate.
-gateDist = 50;
+gateDist = 25;
 gateAxis = [cos(thetaE); sin(thetaE)];
 gatePoint2D = E0 + gateDist * gateAxis;
 gateCoordinate = gateAxis' * gatePoint2D;
 evaderInitialCoordinate = gateAxis' * E0;
 gateTime = (gateCoordinate - evaderInitialCoordinate) / VE;
 gatePoint = [gatePoint2D; zTarget];
+
+%% Simulation Parameters
+dt_sim = 0.04;
+dt_mpc = 0.04;
+horizonSteps = 40;
+horizonTime = horizonSteps * dt_mpc;
+simMaxTime = ceil(gateDist / VE);
+maxSIMsteps = floor(simMaxTime / dt_sim);
+interceptRadius = 0.5;
+leadTime = 0.0;
+fprintf('Simulating for a maximum of %i seconds, over %i simulation time steps with dt=%.2f\n', simMaxTime, maxSIMsteps, dt_sim)
 
 %% QP Cost Setup
 Q = blkdiag(0.1 * eye(3), ...
@@ -84,8 +96,8 @@ anglim      = deg2rad(70);
 uub = [3.0 * m * g;  torquelim;  torquelim;  0.25 * torquelim];
 ulb = [0.5 * m * g; -torquelim; -torquelim; -0.25 * torquelim];
 
-duub = [4.0;  0.15;  0.15;  0.05] / dt;
-dulb = [-4.0; -0.15; -0.15; -0.05] / dt;
+duub = [4.0;  0.15;  0.15;  0.05] / dt_mpc;
+dulb = [-4.0; -0.15; -0.15; -0.05] / dt_mpc;
 
 duStackUB = repmat(duub, horizonSteps, 1);
 duStackLB = repmat(dulb, horizonSteps, 1);
@@ -133,36 +145,26 @@ inputHistory = u;
 Xs = x(1:3);
 Ts = 0;
 mpcIntercepted = false;
-maxMPCSteps = floor(mpcMaxTime / dt);
-wallTimes = zeros(maxMPCSteps,1);
-
-enableCostSurfacePlot = true;
-costSurfacePlotStride = 1;
-costPlotState = struct();
-costPlotState.captureMovie = true;
-costPlotState.movieFrameRate = 10;
-costPlotState.moviePath = fullfile(pwd, 'MovingEvaderInterception_cost_surface.mp4');
-for k = 1:maxMPCSteps
-    currentTime = (k - 1) * dt;
+wallTimes = zeros(maxSIMsteps,1);
+for k = 1:maxSIMsteps
+    currentTime = (k - 1) * dt_sim;
 
     J_xv = Jacobian(@(x) dynamics(0, x, u, params, no_wind), x);
     J_u  = Jacobian(@(u) dynamics(0, x, u, params, no_wind), u);
     Ac = [zeros(12, 6), eye(12), zeros(12, 4); zeros(6, 6), J_xv(7:12, :), zeros(6, 4); zeros(4, 22)];
     Bc = [zeros(12, 4); J_u(7:12, :); eye(4)];
-    [Ads, Bds] = Discretize_dt(dt, ones(horizonSteps, 1), Ac, Bc);
+    [Ads, Bds] = Discretize_dt(dt_mpc, ones(horizonSteps, 1), Ac, Bc);
     [S, M] = StackedMatrix(Ads, Bds);
 
     x_aug = [x; a; u];
 
-    predictionTimes = (currentTime + leadTime + dt:dt:currentTime + leadTime + horizonTime)';
+    predictionTimes = (currentTime + leadTime + dt_mpc:dt_mpc:currentTime + leadTime + horizonTime)';
     targetXYZ = evaderPosition(predictionTimes, E0, VE, thetaE, zTarget);
-    x_traj = [targetXYZ, zeros(horizonSteps, 15), ...
-        repmat(u_hover', horizonSteps, 1)]';
+    x_traj = [targetXYZ, zeros(horizonSteps, 15), repmat(u_hover', horizonSteps, 1)]';
     x_traj = x_traj(:);
     
   % [H, q] = QPFormat(Q_density, R_density, P, S, M, t, x0, x_traj, u_traj, d_traj)
-    [H, q] = QPFormat(Q, R, P, S, M, (0:dt:horizonTime)', ...
-        x_aug, x_traj, zeros(horizonSteps * 4, 1));
+    [H, q] = QPFormat(Q, R, P, S, M, (0:dt_mpc:horizonTime)', x_aug, x_traj, zeros(horizonSteps * 4, 1));
 
     Hqp = (H + H') / 2;
 
@@ -170,7 +172,7 @@ for k = 1:maxMPCSteps
     evaderCoordinate = gateAxis' * evaderNow(1, 1:2)';
     gateTimeRemainingNow = (gateCoordinate - evaderCoordinate) / VE;
     if gateTimeRemainingNow <= 0
-        warning('Evader reached the gate before MPC intercept at t = %.2f s. Stopping MPC.', currentTime);
+        warning('Evader reached the gate before MPC intercept at t = %.2f s. Stopping simulation.', currentTime);
         break;
     end
 
@@ -185,8 +187,8 @@ for k = 1:maxMPCSteps
 
     % Terminal gate reachability:
     % gate <= p_quad_N + v_quad_N * (time left after terminal prediction).
-    terminalTime = currentTime + horizonTime;
-    terminalTimeRemaining = gateTime - terminalTime;
+    % Use the live remaining gate time referenced to the current step.
+    terminalTimeRemaining = gateTimeRemainingNow - (leadTime + horizonTime);
     AineqGate = AineqBase;
     bineqGate = bineqBase;
     gateActive = false;
@@ -238,17 +240,17 @@ for k = 1:maxMPCSteps
     end
 
     wallTimes(k) = toc(tnow);
-    u = u + u_mpc(1:4) * dt;
+    u = u + u_mpc(1:4) * dt_mpc;
     u = min(max(u, ulb), uub);
-    [T, X] = ode45(@(t, state) dynamics(t, state, u, params, wind_data), 0:dt/10:dt, x);
+    [T, X] = ode45(@(t, state) dynamics(t, state, u, params, wind_data), 0:dt_sim/10:dt_sim, x);
     Xs = [Xs, X(2:end, 1:3)'];
     Ts = [Ts; currentTime + T(2:end)];
-    a = (X(end, 7:12)' - x(7:12)) / dt;
+    a = (X(end, 7:12)' - x(7:12)) / dt_sim;
     x = X(end, :)';
 
     allXs = [allXs, X(end,:)'];
     inputHistory = [inputHistory, u];
-    times = [times; times(end)+dt];
+    times = [times; times(end)+dt_sim];
     evaderState = [evaderState; evaderNow(1, 1:3)];
 
     evaderNow = evaderPosition(Ts(end), E0, VE, thetaE, zTarget);
@@ -256,7 +258,7 @@ for k = 1:maxMPCSteps
     if rangeNow <= interceptRadius
         mpcIntercepted = true;
         numstepssaturated = sum(sum(inputHistory - ulb < 1e-2 | inputHistory - uub > -1e-2));
-        time_at_saturation = dt * numstepssaturated;
+        time_at_saturation = dt_sim * numstepssaturated;
         fprintf('MPC intercepted at t = %.2f s. Range = %.2f m. Distance from gate = %.1f m. # of Steps = %i\n', Ts(end), rangeNow, (gateCoordinate - evaderCoordinate), k);
         fprintf('    input cost = %.2f Fz, %.5f tau_phi, %.5f tau_theta, %.5f tau_psi\n', u(1), u(2), u(3), u(4));
         fprintf('    time at saturation = %.2f s\n', time_at_saturation);
@@ -264,9 +266,9 @@ for k = 1:maxMPCSteps
         break;
     end
 
-    if mod(k, round(1 / dt)) == 0 || k == maxMPCSteps
+    if mod(k, round(1 / dt_sim)) == 0 || k == maxSIMsteps
         fprintf('MPC progress: %.2f / %.2f s, range = %.2f m, gate active = %d\n', ...
-            Ts(end), mpcMaxTime, rangeNow, gateActive);
+            Ts(end), simMaxTime, rangeNow, gateActive);
     end
 end
 
@@ -283,7 +285,7 @@ if ~mpcIntercepted
         Ts(end), rangeMPCFinal);
 end
 
-tEvaderPlot = (0:dt:Ts(end))';
+tEvaderPlot = (0:dt_sim:Ts(end))';
 evaderPlot = evaderPosition(tEvaderPlot, E0, VE, thetaE, zTarget);
 evaderPlotCoarse = evaderPosition(times, E0, VE, thetaE, zTarget)';
 
@@ -296,7 +298,7 @@ ppConfig = struct( ...
     'lambda', lambda, ...
     'thetaE', thetaE, ...
     'zTarget', zTarget, ...
-    'dt', dt, ...
+    'dt', dt_sim, ...
     'interceptRadius', interceptRadius);
 
 comparisonData = struct( ...
