@@ -48,6 +48,8 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData, comparisonData)
         error('The number of columns in Xs must match the length of t.');
     end
 
+    ppData = simulatePPIfConfigured(comparisonData);
+
     [stateLower, stateUpper, controlLower, controlUpper] = unpackConstraints(constraints);
 
     % ------------------------------------------------------------------ %
@@ -116,7 +118,10 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData, comparisonData)
         plot(xrPath, yrPath, 'k--', 'LineWidth', 1.5, 'HandleVisibility', 'off');
     end
 
-    if isfield(comparisonData, 'ppPath') && ~isempty(comparisonData.ppPath)
+    if ppData.available
+        plot(ppData.path(:, 1), ppData.path(:, 2), 'b-', ...
+            'LineWidth', 2, 'DisplayName', 'Proportional pursuit');
+    elseif isfield(comparisonData, 'ppPath') && ~isempty(comparisonData.ppPath)
         plot(comparisonData.ppPath(:, 1), comparisonData.ppPath(:, 2), 'b-', ...
             'LineWidth', 2, 'DisplayName', 'Proportional pursuit');
     end
@@ -128,7 +133,10 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData, comparisonData)
             'MarkerFaceColor', 'm', 'HandleVisibility', 'off');
     end
 
-    if isfield(comparisonData, 'ppIntercept') && ~isempty(comparisonData.ppIntercept)
+    if ppData.available
+        plot(ppData.intercept(1), ppData.intercept(2), 'ko', ...
+            'MarkerFaceColor', 'k', 'DisplayName', 'PP intercept');
+    elseif isfield(comparisonData, 'ppIntercept') && ~isempty(comparisonData.ppIntercept)
         plot(comparisonData.ppIntercept(1), comparisonData.ppIntercept(2), 'ko', ...
             'MarkerFaceColor', 'k', 'DisplayName', 'PP intercept');
     end
@@ -140,6 +148,28 @@ function PlotResults(t, Xs, x_ref, Us, constraints, windData, comparisonData)
     xlabel('x [m]', 'Interpreter', 'latex');
     ylabel('y [m]', 'Interpreter', 'latex');
     title('Moving Evader Pursuit: PP vs MPC', 'Interpreter', 'latex');
+    legend('Location', 'best');
+
+    % ================================================================== %
+    %  Figure 1b – Range Comparison: PP vs MPC
+    % ================================================================== %
+    figure('Name', 'Range to Moving Evader', 'NumberTitle', 'off');
+    hold on; grid on; box on;
+
+    rangeMPC = sqrt((x - xr).^2 + (y - yr).^2);
+    if ppData.available
+        plot(ppData.time, ppData.range, 'b-', 'LineWidth', 2, ...
+            'DisplayName', 'Proportional pursuit');
+    end
+    plot(t, rangeMPC, 'r-', 'LineWidth', 2, 'DisplayName', 'MPC quadcopter');
+
+    if isfield(comparisonData, 'gateTime') && isfinite(comparisonData.gateTime)
+        xline(comparisonData.gateTime, 'k:', 'Gate time', 'DisplayName', 'Gate time');
+    end
+
+    xlabel('t [s]', 'Interpreter', 'latex');
+    ylabel('planar range to evader [m]', 'Interpreter', 'latex');
+    title('Range to Moving Evader', 'Interpreter', 'latex');
     legend('Location', 'best');
 
     % ================================================================== %
@@ -433,6 +463,75 @@ function addWindOverlay3D(windData, ySlices, xyzLimits)
             qh.HandleVisibility = 'off';
         end
     end
+end
+
+function ppData = simulatePPIfConfigured(comparisonData)
+    ppData = struct('available', false, 'time', [], 'range', [], 'path', [], 'intercept', []);
+
+    if ~isfield(comparisonData, 'ppConfig') || isempty(comparisonData.ppConfig)
+        return;
+    end
+
+    cfg = comparisonData.ppConfig;
+    requiredFields = {'P0', 'E0', 'VP', 'VE', 'lambda', 'thetaE', 'zTarget', 'dt', 'interceptRadius'};
+    for i = 1:numel(requiredFields)
+        if ~isfield(cfg, requiredFields{i})
+            return;
+        end
+    end
+
+    R0 = norm(cfg.E0 - cfg.P0);
+    beta0 = atan2(cfg.E0(2) - cfg.P0(2), cfg.E0(1) - cfg.P0(1));
+    theta0PP = beta0;
+
+    tspanPP = 0:cfg.dt:100;
+    optsPP = odeset('Events', @(tloc, xloc) stopFcnPP(tloc, xloc, cfg.interceptRadius), ...
+        'RelTol', 1e-6, 'AbsTol', 1e-6);
+    x0PP = [R0; beta0; theta0PP];
+
+    [tPP, xPP] = ode45(@(tloc, xloc) RB_PP_straight_plot(tloc, xloc, cfg.VP, cfg.VE, cfg.lambda, cfg.thetaE), ...
+        tspanPP, x0PP, optsPP);
+
+    RPP = xPP(:, 1);
+    betaPP = xPP(:, 2);
+    evaderPP = evaderPositionPlot(tPP, cfg.E0, cfg.VE, cfg.thetaE, cfg.zTarget);
+    xEPP = evaderPP(:, 1);
+    yEPP = evaderPP(:, 2);
+    xPPP = xEPP - RPP .* cos(betaPP);
+    yPPP = yEPP - RPP .* sin(betaPP);
+
+    fprintf('PP lambda = %g -> tf = %.2f s, Rf = %.4f m\n', cfg.lambda, tPP(end), RPP(end));
+
+    ppData.available = true;
+    ppData.time = tPP;
+    ppData.range = RPP;
+    ppData.path = [xPPP, yPPP];
+    ppData.intercept = [xPPP(end), yPPP(end)];
+end
+
+function targetXYZ = evaderPositionPlot(t, E0, VE, thetaE, zTarget)
+    t = t(:);
+    targetXYZ = [E0(1) + VE * cos(thetaE) * t, ...
+        E0(2) + VE * sin(thetaE) * t, ...
+        zTarget * ones(size(t))];
+end
+
+function dx = RB_PP_straight_plot(~, x, VP, VE, lambda, thetaE)
+    R = x(1);
+    beta = x(2);
+    theta = x(3);
+
+    dB = (-VE * sin(beta - thetaE) + VP * sin(beta - theta)) / R;
+    dTheta = lambda * dB;
+    dR = VE * cos(beta - thetaE) - VP * cos(beta - theta);
+
+    dx = [dR; dB; dTheta];
+end
+
+function [value, isterminal, direction] = stopFcnPP(~, x, interceptRadius)
+    value = x(1) - interceptRadius;
+    isterminal = 1;
+    direction = -1;
 end
 
 
