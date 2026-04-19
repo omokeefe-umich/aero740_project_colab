@@ -83,7 +83,10 @@ Q = blkdiag(0.1 * eye(3), ...
             eye(3) * 0.01, ...
             zeros(4) );
 P = blkdiag(eye(3), zeros(19));
-R = eye(4) * 1e-4;
+R = [1e-6, 0,    0,    0;
+     0, 1e-4, 0,    0; 
+     0, 0,    1e-4, 0;
+     0, 0,    0,    1e-4];
 
 %% Bounds / constraints
 % Gate reachability constraint:
@@ -94,7 +97,7 @@ torquelim   = 0.4;
 anglim      = deg2rad(70);
 
 uub = [3.0 * m * g;  torquelim;  torquelim;  0.25 * torquelim];
-ulb = [0.5 * m * g; -torquelim; -torquelim; -0.25 * torquelim];
+ulb = [0.0 * m * g; -torquelim; -torquelim; -0.25 * torquelim];
 
 duub = [4.0;  0.15;  0.15;  0.05] / dt_mpc;
 dulb = [-4.0; -0.15; -0.15; -0.05] / dt_mpc;
