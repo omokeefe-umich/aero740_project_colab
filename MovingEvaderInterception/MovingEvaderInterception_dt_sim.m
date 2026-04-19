@@ -6,6 +6,11 @@
 % Augmented State:
 % [x y z phi theta psi xdot ydot zdot phidot thetadot psidot 
 %  xddot yddot zddot phiddot thetaddot psiddot fz tau_phi tau_th tau_ps]
+%
+% Lifted prediction state used in the QP:
+%   z = [x; e; xddot; u], with e = x - x_ref
+% This keeps physical dynamics in the compact 22-state model while adding
+% explicit tracking-error coordinates to the optimization model.
 clear; clc; close all;
 
 %% Pursuit / evader setup
@@ -13,23 +18,23 @@ P0 = [0; 0];
 E0 = [20; 0];
 VE = 5;
 VP = 6;
-lambda = 15;
+lambda = 50;
 thetaE = pi / 2;
 zTarget = 0.0;
 
 dt = 0.04;
-dt_sim = 0.4; 
+dt_sim = 0.04; 
 horizonSteps = 40;
 horizonTime = horizonSteps * dt;
 simMaxTime = 60.0;
 interceptRadius = 0.15;
 leadTime = 0.0;
+gateDistanceFromE0 = 16;
 
 % The gate is a fixed point on the evader/ground-vehicle path. The evader
 % moves from E0 toward this point, and the quadcopter must intercept the
 % evader before the evader reaches the gate.
 gateAxis = [cos(thetaE); sin(thetaE)];
-gateDistanceFromE0 = 50;
 gatePoint2D = E0 + gateDistanceFromE0 * gateAxis;
 gateCoordinate = gateAxis' * gatePoint2D;
 evaderInitialCoordinate = gateAxis' * E0;
@@ -37,7 +42,7 @@ gateTime = (gateCoordinate - evaderInitialCoordinate) / VE;
 gatePoint = [gatePoint2D; zTarget];
 
 %% Zero Wind Disturbance for Modelling
-wind_data = DisturbanceModel(0); % 0 = no wind, 1 = wind on
+wind_data = DisturbanceModel(1); % 0 = no wind, 1 = wind on
 no_wind = wind_data ;
 no_wind.U = wind_data.U*0 ;
 no_wind.W = wind_data.W*0 ;
@@ -75,23 +80,43 @@ Iy = 0.0019;
 Iz = 0.0223;
 params = [m; g; Jr; Ix; Iy; Iz];
 
+nX = 12;
+nA = 6;
+nU = 4;
+nAug = nX + nA + nU;      % [x; a; u]
+nLift = nX + nX + nA + nU; % [x; e; a; u]
+
+idxAug = struct('x', 1:nX, 'a', nX + (1:nA), 'u', nX + nA + (1:nU));
+idxLift = struct( ...
+    'x', 1:nX, ...
+    'e', nX + (1:nX), ...
+    'a', 2 * nX + (1:nA), ...
+    'u', 2 * nX + nA + (1:nU));
+
 x = zeros(12, 1);
 x(1:2) = P0;
-x(3) = zTarget;
+x(3) = 2;
 u_hover = [m * g; 0; 0; 0];
 u = u_hover;
 % Assuming accurate acceleration measurement...
 a = dynamics(0, x, u, params, wind_data);
 a = a(7:12);
 
-Q = blkdiag(0.1 * eye(3), 0.001 * eye(2), zeros(4), eye(3) * 0.01, eye(2) * 0.01, 0.001, eye(3) * 0.01, zeros(4));
-P = blkdiag(eye(3), zeros(19));
-R = eye(4) * 1e-4;
 %% Bounds / constraints
 % Gate reachability constraint:
 %   gate < quad_position + quad_velocity * time_remaining
 % Projected along the evader motion axis, this is a linear inequality in
 % the predicted quad position and velocity.
+%
+% Build lifted mapping z_k = T_step * x_aug_k + d_k,
+% where z_k = [x_k; e_k; a_k; u_k], e_k = x_k - x_ref_k.
+T_step = zeros(nLift, nAug);
+T_step(idxLift.x, idxAug.x) = eye(nX);
+T_step(idxLift.e, idxAug.x) = eye(nX);
+T_step(idxLift.a, idxAug.a) = eye(nA);
+T_step(idxLift.u, idxAug.u) = eye(nU);
+T_stacked = kron(eye(horizonSteps), T_step);
+
 torquelim   = 0.4;
 anglim      = deg2rad(70);
 
@@ -106,12 +131,12 @@ duStackLB = repmat(dulb, horizonSteps, 1);
 
 % Per-step hard constraints on the augmented predicted state:
 % z >= 0, bounded attitude, and bounded physical input.
-A_z = zeros(1, 22);
+A_z = zeros(1, nLift);
 A_z(3) = -1;
-A_ang = zeros(3, 22);
-A_ang(:, 4:6) = eye(3);
-A_u = zeros(4, 22);
-A_u(:, 19:22) = eye(4);
+A_ang = zeros(3, nLift);
+A_ang(:, idxLift.x(4:6)) = eye(3);
+A_u = zeros(4, nLift);
+A_u(:, idxLift.u) = eye(4);
 A_step = [A_z; A_ang; -A_ang; A_u; -A_u];
 b_step = [0; anglim * ones(3, 1); anglim * ones(3, 1); uub; -ulb];
 
@@ -136,6 +161,26 @@ qpOptions = optimoptions('quadprog', ...
          'OptimalityTolerance', 1e-3, ...
          'StepTolerance', 1e-8);
 
+%% Penalty Matrices
+Q = zeros(nLift);
+Q(idxLift.e(1:3), idxLift.e(1:3)) = 0.1 * eye(3);
+Q(idxLift.e(4:5), idxLift.e(4:5)) = 0.001 * eye(2);
+Q(idxLift.e(7:9), idxLift.e(7:9)) = 0.01 * eye(3);
+Q(idxLift.e(10:11), idxLift.e(10:11)) = 0.01 * eye(2);
+Q(idxLift.e(12), idxLift.e(12)) = 0.001;
+Q(idxLift.a(1:3), idxLift.a(1:3)) = 0.01 * eye(3);
+
+P = zeros(nLift);
+P(idxLift.e(1:3), idxLift.e(1:3)) = eye(3);
+duub_norm = [4.0; 0.15; 0.15; 0.05] / dt;   % same as before, but now treat as 1.0 each
+dulb_norm = -duub_norm;
+
+% Scale R to reflect that all normalized rates are order-1:
+R = diag([1e-4 / duub_norm(1)^2, ...
+          1e-4 / duub_norm(2)^2, ...
+          1e-4 / duub_norm(3)^2, ...
+          1e-4 / duub_norm(4)^2]);
+
 %% MPC pursuit of the moving evader
 summedInput = u;
 allXs = x;
@@ -158,17 +203,30 @@ for k = 1:maxSIMsteps
     Bc = [zeros(12, 4); J_u(7:12, :); eye(4)];
     [Ads, Bds] = Discretize_dt(dt, ones(horizonSteps, 1), Ac, Bc);
     [S, M] = StackedMatrix(Ads, Bds);
+    S_lift = T_stacked * S;
+    M_lift = T_stacked * M;
 
     x_aug = [x; a; u];
 
     predictionTimes = (currentTime + leadTime + dt:dt:currentTime + leadTime + horizonTime)';
     targetXYZ = evaderPosition(predictionTimes, E0, VE, thetaE, zTarget);
-    x_traj = [targetXYZ, zeros(horizonSteps, 15), ...
-        repmat(u_hover', horizonSteps, 1)]';
-    x_traj = x_traj(:);
+    x_ref = [targetXYZ, zeros(horizonSteps, nX - 3)]';
+    x_ref = x_ref(:);
 
-    [H, q] = QPFormat(Q, R, P, S, M, (0:dt:horizonTime)', ...
-        x_aug, x_traj, zeros(horizonSteps * 4, 1));
+    x_traj = zeros(horizonSteps * nLift, 1);
+    d_lift = zeros(horizonSteps * nLift, 1);
+    for i = 1:horizonSteps
+        rowOffset = (i - 1) * nLift;
+        refOffset = (i - 1) * nX;
+        x_ref_i = x_ref(refOffset + (1:nX));
+
+        x_traj(rowOffset + idxLift.x(1:3)) = x_ref_i(1:3);
+        x_traj(rowOffset + idxLift.u) = u_hover;
+        d_lift(rowOffset + idxLift.e) = -x_ref_i;
+    end
+
+    [H, q] = QPFormat(Q, R, P, S_lift, M_lift, (0:dt:horizonTime)', ...
+        x_aug, x_traj, zeros(horizonSteps * 4, 1), d_lift);
 
     Hqp = (H + H') / 2;
 
@@ -180,13 +238,13 @@ for k = 1:maxSIMsteps
         break;
     end
 
-    % Augmented state indices: [x(1:6); xdot(7:12); xddot(13:18); u(19:22)].
-    Mx = M * x_aug;
+    % Lifted state indices: [x(1:12); e(13:24); xddot(25:30); u(31:34)].
+    Mx = M_lift * x_aug + d_lift;
 
     % Hard path constraints for each predicted augmented state.
     % This includes z >= 0, bounded attitude, and physical input bounds.
     A_state_stacked = kron(eye(horizonSteps), A_step);
-    AineqBase = A_state_stacked * S;
+    AineqBase = A_state_stacked * S_lift;
     bineqBase = repmat(b_step, horizonSteps, 1) - A_state_stacked * Mx;
 
     % Terminal gate reachability:
@@ -197,14 +255,16 @@ for k = 1:maxSIMsteps
     bineqGate = bineqBase;
     gateActive = false;
     if terminalTimeRemaining > 0
-        S_N = S((horizonSteps - 1) * 22 + 1:horizonSteps * 22, :);
-        M_N = M((horizonSteps - 1) * 22 + 1:horizonSteps * 22, :);
-        A_gate_N = zeros(1, 22);
-        A_gate_N(1:2) = -gateAxis';
-        A_gate_N(7:8) = -terminalTimeRemaining * gateAxis';
+        rowIdxN = (horizonSteps - 1) * nLift + 1:horizonSteps * nLift;
+        S_N = S_lift(rowIdxN, :);
+        M_N = M_lift(rowIdxN, :);
+        d_N = d_lift(rowIdxN);
+        A_gate_N = zeros(1, nLift);
+        A_gate_N(idxLift.x(1:2)) = -gateAxis';
+        A_gate_N(idxLift.x(7:8)) = -terminalTimeRemaining * gateAxis';
         b_gate_N = -gateCoordinate;
         AineqGate = [A_gate_N * S_N; AineqBase];
-        bineqGate = [b_gate_N - A_gate_N * M_N * x_aug; bineqBase];
+        bineqGate = [b_gate_N - A_gate_N * (M_N * x_aug + d_N); bineqBase];
         gateActive = true;
     end
 
@@ -223,7 +283,7 @@ for k = 1:maxSIMsteps
             [u_mpc, ~, exitflag] = quadprog(Hqp, q, AineqBase, bineqBase, [], [], ...
                 duStackLB, duStackUB, [], qpOptions);
             if exitflag > 0 && ~isempty(u_mpc) && all(isfinite(u_mpc))
-                fprintf(['Gate reachability row infeasible at t = %.2f s ' ...
+                fprintf(['Gate reachability rows infeasible at t = %.2f s ' ...
                     '(gate exitflag %d); using z-constrained tracking QP this step.\n'], ...
                     currentTime, gateExitflag);
                 gateActive = false;
@@ -253,7 +313,7 @@ for k = 1:maxSIMsteps
     evaderState = [evaderState; evaderNow(1, 1:3)];
 
     evaderNow = evaderPosition(Ts(end), E0, VE, thetaE, zTarget);
-    rangeNow = norm(Xs(1:2, end)' - evaderNow(1, 1:2));
+    rangeNow = norm(Xs(1:3, end)' - evaderNow(1, 1:3));
     if rangeNow <= interceptRadius
         mpcIntercepted = true;
         numstepssaturated = sum(sum(inputHistory - ulb < 1e-2 | inputHistory - uub > -1e-2));

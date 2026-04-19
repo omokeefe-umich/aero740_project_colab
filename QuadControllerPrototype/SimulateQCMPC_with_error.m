@@ -43,14 +43,14 @@ dt    = 0.1;       % outer-loop sample time [s]
 tspan = 0:dt:tend;
 
 %% MPC Parameters
-N_mpc  = tend * 20;   % horizon length in MPC steps
+N_mpc  = tend;        % horizon length in MPC steps (N_mpc * dt_mpc = 1.0 s)
 dt_mpc = dt / 2;      % MPC discretization time [s]
 
 %% Initial Conditions
 % --- Physical plant state ---
 x_start_qc = 0;
 y_start_qc = 0;
-z_start_qc = -10;
+z_start_qc = 10;
 x = [x_start_qc; y_start_qc; z_start_qc; zeros(9,1)];   % absolute plant state
 
 % --- Reference state ---
@@ -86,19 +86,23 @@ Xrefs = zeros(3,  numel(tspan));   % reference position history
 smallcost = 1e-3;
 
 Q = zeros(40,40);
+q_pos = 1 / (0.05^2);
+q_vel = 1 / (0.1^2);
+r_fz  = 1 / (2.0^2);
+r_tau = 1 / (0.5^2);
 
 % Integral error penalty (stronger)
-QeI_pos = 50 * smallcost * diag([1 1 1]);
+QeI_pos = 2 * smallcost * diag([q_pos q_pos q_pos]);
 Q(13:15,13:15) = QeI_pos;
 
 % Instantaneous tracking error penalty
-Qxerr_pos = 1 * smallcost * diag([1 1 1]);
+Qxerr_pos = smallcost * diag([q_pos q_pos q_pos]);
 Q(25:27,25:27) = Qxerr_pos;
 
 % Optional mild penalties on attitude / velocity tracking error if desired
 % Q(28:36,28:36) = 0.1 * smallcost * eye(9);
 
-R = diag([smallcost; smallcost; smallcost; smallcost]);
+R = diag([r_fz, r_tau, r_tau, r_tau]);
 
 % Terminal cost
 P = Q / smallcost;

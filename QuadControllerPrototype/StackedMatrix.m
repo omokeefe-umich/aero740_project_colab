@@ -53,6 +53,6 @@ function [S, M] = StackedMatrix(Ads, Bds)
 
         % Add direct influence of u_i on x_{i+1}: S_{i+1, col i} = Bd_1
         % (Note: Bds(1,:,:) is used here; if Bd varies by step replace with Bds(i+1,:,:))
-        S(N_x*i + 1 : N_x*(i+1), N_u*i + 1 : N_u*(i+1)) = squeeze(Bds(1, :, :));
+        S(N_x*i + 1 : N_x*(i+1), N_u*i + 1 : N_u*(i+1)) = squeeze(Bds(i+1, :, :));
     end
 end

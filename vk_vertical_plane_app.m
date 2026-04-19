@@ -16,18 +16,18 @@ function vk_vertical_plane_app
     rng(2);
 
     %% Default parameters
-    p.sigma_u = 1.0;     % m/s
-    p.sigma_w = 0.5;     % m/s
+    p.sigma_u = 1.5;     % m/s
+    p.sigma_w = 0.9;     % m/s
     p.Lu      = 60;      % m
-    p.Lw      = 20;      % m
+    p.Lw      = 50;      % m
 
     % spatial frequencies in cycles/m
     p.kmin    = 1/200;   % 0.005 cyc/m  -> wavelength 200 m
-    p.kmax    = 1/8;     % 0.125 cyc/m  -> wavelength 8 m
+    p.kmax    = 1/5;     % 0.2 cyc/m  -> wavelength 8 m
 
     p.nModes  = 120;
-    p.Lx      = 120;     % m
-    p.Lz      = 60;      % m
+    p.Lx      = 25;     % m
+    p.Lz      = 10;      % m
     p.Nx      = 41;
     p.Nz      = 21;
     p.scale   = 1.0;     % quiver scale factor

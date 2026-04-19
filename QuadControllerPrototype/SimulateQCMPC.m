@@ -1,7 +1,7 @@
 %% Quadcopter MPC Simulation — Thanh 2022
 % x (12x1): [x,y,z, phi,theta,psi, xdot,ydot,zdot, phidot,thetadot,psidot]
 % u  (4x1): [fz, tau_phi, tau_th, tau_ps]
-% Augmented state (40x1): [delta_x; x; u; r]
+% Augmented state (40x1): [delta_x; e; x; u]
 %   delta_x = x_actual - x_nominal (offset-free disturbance rejection)
 
 clear all;
@@ -35,13 +35,15 @@ accellim    = 5;             % m/s/s
 
 xub = [inf*ones(3,1);    anglim*ones(3,1);   speedlim*ones(3,1);   angratelim*ones(3,1)];
 xlb = [-inf*ones(3,1);  -anglim*ones(3,1);  -speedlim*ones(3,1);  -angratelim*ones(3,1)];
+eub = inf*ones(12,1);
+elb = -inf*ones(12,1);
 uub = [ Fzlim;    torquelim;  torquelim;  (1/4)*torquelim];
 ulb = [-Fzlim;   -torquelim; -torquelim; -(1/4)*torquelim];
 dxub = [ speedlim*ones(3,1);    angratelim*ones(3,1);      accellim*ones(3,1);      (1/4)*angratelim*ones(3,1)];
 dxlb = [-speedlim*ones(3,1);   -angratelim*ones(3,1);     -accellim*ones(3,1);     -(1/4)*angratelim*ones(3,1)];
 
-Xub = [dxub; xub; uub];
-Xlb = [dxlb; xlb; ulb];
+Xub = [dxub; eub; xub; uub];
+Xlb = [dxlb; elb; xlb; ulb];
 
 duub = [(2/3)*Fzlim;    (1/2)*torquelim;    (1/2)*torquelim;  (1/2)*torquelim];
 dulb = [-(2/3)*Fzlim;  -(1/2)*torquelim;   -(1/2)*torquelim; -(1/2)*torquelim];
@@ -53,14 +55,11 @@ dulb = [-(2/3)*Fzlim;  -(1/2)*torquelim;   -(1/2)*torquelim; -(1/2)*torquelim];
 % https://wrekd.com/products/t-motor-v3115-3115-900kv-motor?_pos=6&_fid=1005fc1f0&_ss=c
 % https://binsfeld.com/power-torque-speed-conversion-calculator/
 
-%% Constraints
-% Should we bring any constraints in addition to what's contained in the
-% states? They're pretty comprehensive. 
 
 
 %% MPC Parameters
-N_mpc = tend;
-dt_mpc = dt/5; 
+N_mpc = tend/2;
+dt_mpc = dt/10; 
 
 %% Initial Conditions
 % Quadcopter
@@ -75,9 +74,10 @@ x_start_tgt = 10; % initial x position of target vehicle (m)
 y_start_tgt = 0; 
 z_start_tgt = 0; 
 r = [x_start_tgt; y_start_tgt; z_start_tgt; zeros(9,1)]; 
+e = x - r;  % initial tracking error
 
 % Initial input (thrust and torques)
-u      = zeros(4, 1);                     % initial input (no thrust, no torques)
+u      = [m*g; zeros(3, 1)];                     % initial input (hover, no torques)
 
 % Preallocate arrays to store simulation history for plotting
 Xs     = zeros(12, numel(tspan));         % full 12-state history
@@ -89,49 +89,48 @@ q_pos = 1 / (0.05^2);
 q_vel = 1 / (0.1^2);
 r_fz  = 1 / (2.0^2);
 r_tau = 1 / (0.5^2);
+min_error = 0.0001 * min([q_pos, q_vel, r_fz, r_tau]);
 
 % Q encodes ||x_pos - r_pos||^2 via cross-terms (r at augmented indices 29:31)
-Q = zeros(40, 40);
+Q = min_error * ones(40, 40);
 Q(13:15, 13:15) =  diag([q_pos, q_pos, q_pos]);
-Q(13:15, 29:31) = -diag([q_pos, q_pos, q_pos]);
-Q(29:31, 29:31) =  diag([q_pos, q_pos, q_pos]);
-Q(29:31, 13:15) = -diag([q_pos, q_pos, q_pos]);
-Q(19:21, 19:21) = diag([q_vel, q_vel, q_vel]);
-R = diag([r_fz, r_tau, r_tau, r_tau]);
-Q(25:28, 25:28) = R;
-P = 10 * Q;  % terminal cost
+R = 10* diag([r_fz, r_tau, r_tau, r_tau]);
+Q(37:40, 37:40) = R;
+P = 5 * Q;  % terminal cost
+
+C = eye(12); 
 
 %% MPC Control Loop
 for k = 1 : numel(tspan)
     % Linearize at current operating point
-    Ac = Jacobian(@(x) dynamics(0, x, u, params), x);
-    Bc = Jacobian(@(u) dynamics(0, x + deltax, u, params), u);
+    Ac = Jacobian(@(x) dynamics(0, x , u, params), x);
+    Bc = Jacobian(@(u) dynamics(0, x , u, params), u);
 
     [Ads, Bds] = Discretize_dt([dt_mpc], ones(N_mpc, 1), Ac, Bc);
 
     % Build augmented discrete-time matrices (40x40): [delta_x; x; u; r]
     Ads_augmented = zeros(N_mpc, 40, 40);
     Bds_augmented = zeros(N_mpc, 40, 4);
-    for i = 1:20
+    for i = 1:N_mpc
         Ad_i = squeeze(Ads(i, :, :));
         Bd_i = squeeze(Bds(i, :, :));
         Ads_augmented(i, :, :) = [
-                                Ad_i,           zeros(12, 12),  zeros(12, 4),   zeros(12, 12); ...
-                                eye(12),        eye(12),        zeros(12, 4),   zeros(12, 12); ...
-                                zeros(4, 12),   zeros(4, 12),   eye(4),         zeros(4, 12); ...
-                                zeros(12, 12),  zeros(12, 12),  zeros(12, 4),   eye(12)
+                                Ad_i,           zeros(12, 12),      zeros(12, 12),      zeros(12, 4); ...
+                                C*Ad_i,         eye(12),            zeros(12, 12),      zeros(12, 4); ...
+                                Ad_i,           zeros(12, 12),      eye(12),            zeros(12, 4); ... % use dx_{k+1} for x_{k+1} to propagate reference trajectory in augmented state
+                                zeros(4, 12),   zeros(4, 12),       zeros(4, 12),       eye(4)
                                 ];
-        Bds_augmented(i, :, :) = [Bd_i;         zeros(12, 4);   eye(4);         zeros(12, 4)];
+        Bds_augmented(i, :, :) = [Bd_i;         C*Bd_i;             Bd_i;       eye(4)];
     end
     [S, M] = StackedMatrix(Ads_augmented, Bds_augmented);
 
-    x_aug     = [deltax; x; u; r];
+    x_aug     = [deltax; e; x; u];
     t_horizon = tspan(k) : dt_mpc : tspan(k)+N_mpc*dt_mpc;
     [H, q] = QPFormat(Q, R, P, S, M, t_horizon', x_aug, zeros(4*N_mpc, 1));
     u_mpc = quadprog(H, q);
 
-    u = u + u_mpc(1:4);
-    x = x + deltax;
+    du = u_mpc(1:4);
+    u = u + du;
 
     Xs(:, k)    = x;
     Xrefs(:, k) = r(1:3);
@@ -143,9 +142,12 @@ for k = 1 : numel(tspan)
     end
 
     % Integrate nonlinear dynamics one outer step
-    [T, X] = ode45(@(t, x) dynamics(t, x, u, params), 0:0.0001:0.01, x);
+    [T, X] = ode45(@(t, x) dynamics(t, x, u, params), [0 dt], x);
+    x_next = X(end,:)';
 
-    deltax = X(end, :)' - x;
+    deltax = x_next - x;
+    x = x_next; 
+    e = x - r; 
     % r(1) = r(1) + 0.01 * dt;
 end
 

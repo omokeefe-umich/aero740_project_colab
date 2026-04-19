@@ -36,7 +36,7 @@ gateTime = (gateCoordinate - evaderInitialCoordinate) / VE;
 gatePoint = [gatePoint2D; zTarget];
 
 %% Zero Wind Disturbance for Modelling
-wind_data = DisturbanceModel(0); % 0 = no wind, 1 = wind on
+wind_data = DisturbanceModel(1); % 0 = no wind, 1 = wind on
 no_wind = wind_data ;
 no_wind.U = wind_data.U*0 ;
 no_wind.W = wind_data.W*0 ;
@@ -165,7 +165,8 @@ for k = 1:maxMPCSteps
     x_traj = [targetXYZ, zeros(horizonSteps, 15), ...
         repmat(u_hover', horizonSteps, 1)]';
     x_traj = x_traj(:);
-
+    
+  % [H, q] = QPFormat(Q_density, R_density, P, S, M, t, x0, x_traj, u_traj, d_traj)
     [H, q] = QPFormat(Q, R, P, S, M, (0:dt:horizonTime)', ...
         x_aug, x_traj, zeros(horizonSteps * 4, 1));
 
